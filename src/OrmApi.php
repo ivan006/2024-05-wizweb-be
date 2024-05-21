@@ -1,5 +1,6 @@
 <?php
 
+namespace QuicklistsOrmApi;
 
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Database\Eloquent\Model;

@@ -9,7 +9,14 @@
     },
     "autoload": {
         "psr-4": {
-            "Quicklists\\LaravelOrmApi\\": "src/"
+            "QuicklistsOrmApi\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "QuicklistsOrmApi\\QuicklistsServiceProvider"
+            ]
         }
     },
     "authors": [
