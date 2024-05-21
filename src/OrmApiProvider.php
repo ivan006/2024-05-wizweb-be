@@ -4,7 +4,7 @@ namespace QuicklistsOrmApi;
 
 use Illuminate\Support\ServiceProvider;
 
-class QuicklistsServiceProvider extends ServiceProvider
+class OrmApiProvider extends ServiceProvider
 {
     public function register()
     {

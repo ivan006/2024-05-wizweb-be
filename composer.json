@@ -5,7 +5,7 @@
     "require": {
         "php": "^7.3|^8.0",
         "laravel/framework": "^8.0|^9.0|^10.0",
-        "spatie/laravel-query-builder": "^4.0"
+        "spatie/laravel-query-builder": "^4.0|^5.0"
     },
     "autoload": {
         "psr-4": {
@@ -15,7 +15,7 @@
     "extra": {
         "laravel": {
             "providers": [
-                "QuicklistsOrmApi\\QuicklistsServiceProvider"
+                "QuicklistsOrmApi\\OrmApiProvider"
             ]
         }
     },
