@@ -1,0 +1,22 @@
+{
+    "name": "ivanc006/quicklists-laravel-orm-api",
+    "description": "A Laravel ORM API package for QuickLists.",
+    "type": "library",
+    "require": {
+        "php": "^7.3|^8.0",
+        "laravel/framework": "^8.0|^9.0|^10.0",
+        "spatie/laravel-query-builder": "^4.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Quicklists\\LaravelOrmApi\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Ivan Copeland",
+            "email": "ivan.copeland2015@gmail.com"
+        }
+    ],
+    "license": "UNLICENSED"
+}

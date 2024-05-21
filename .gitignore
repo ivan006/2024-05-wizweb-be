@@ -1,0 +1,4 @@
+
+vendor/composer/autoload_namespaces.php
+/vendor
+/.idea
