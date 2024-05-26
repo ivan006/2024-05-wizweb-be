@@ -89,7 +89,7 @@ class OrmApi
         }
 
         //$result = $result->get();
-        $perPage = $request->input('per_page', 15); // Default to 15 records per page
+        $perPage = $request->input('per_page', 1000); // Default to 1000 records per page
         $result = $result->paginate($perPage);
 
         $response = array_merge(
