@@ -81,7 +81,7 @@ class OrmApi
             ->allowedFilters($inferSpatieCodes["allFields"]);
 
 
-        if (isset($request->search) && $inferSpatieCodes["searchable_fields"]){
+        if (isset($request->search) && $inferSpatieCodes["searchable_fields"]) {
             $result = $result->whereFullText(
                 $inferSpatieCodes["searchable_fields"],
                 $request->search
@@ -103,7 +103,8 @@ class OrmApi
         ];
     }
 
-    public static function fetchByIdWithFullQueryExposure (Model $model, $id, $entityName = 'Item') {
+    public static function fetchByIdWithFullQueryExposure(Model $model, $id, $entityName = 'Item')
+    {
 
         $inferSpatieCodes = self::inferSpatieCodes($model);
 
@@ -140,7 +141,7 @@ class OrmApi
         // Gather the model's own validation rules if they exist
         if (method_exists($model, 'rules')) {
             foreach ($model->rules() as $field => $rule) {
-                if ($field !== $exceptionToRule){
+                if ($field !== $exceptionToRule) {
                     $validationRules[$field] = $rule;
                 }
             }
@@ -160,9 +161,9 @@ class OrmApi
 
                             $relationType = class_basename(get_class($model->$relationship()));
 
-                            if ($relationType == "BelongsToMany"){
+                            if ($relationType == "BelongsToMany") {
 
-                            } else if ($relationType == "HasMany"){
+                            } else if ($relationType == "HasMany") {
                                 $exceptionToRule = $model->$relationship()->getForeignKeyName();
                             }
 
@@ -348,7 +349,7 @@ class OrmApi
         if (!$item) {
             return [
                 "res" => [
-                    'message' => $entityName.' not found'
+                    'message' => $entityName . ' not found'
                 ],
                 "code" => 422,
             ];
@@ -358,7 +359,7 @@ class OrmApi
 
         return [
             "res" => [
-                'message' => $entityName.' deleted successfully'
+                'message' => $entityName . ' deleted successfully'
             ],
             "code" => 200,
         ];
@@ -389,7 +390,7 @@ class OrmApi
         return [
             "modelItem" => $item,
             "res" => [
-                'message' => $entityName." updated successfully!",
+                'message' => $entityName . " updated successfully!",
                 'item' => $item->getAttributes(),
             ],
             "code" => 200,
