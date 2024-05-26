@@ -71,7 +71,8 @@ class OrmApi
         return $result;
     }
 
-    public static function fetchAllWithFullQueryExposure (Model $model, $request, $entityName = 'Item') {
+    public static function fetchAllWithFullQueryExposure(Model $model, $request, $entityName = 'Item')
+    {
 
         $inferSpatieCodes = self::inferSpatieCodes($model);
 
