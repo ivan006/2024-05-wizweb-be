@@ -73,38 +73,28 @@ class OrmApi
 
     public static function fetchAllWithFullQueryExposure(Model $model, $request, $entityName = 'Item')
     {
+
         $inferSpatieCodes = self::inferSpatieCodes($model);
 
-        $query = QueryBuilder::for(get_class($model))
+        $result = QueryBuilder::for(get_class($model))
             ->allowedIncludes($inferSpatieCodes["relations"])
             ->allowedFilters($inferSpatieCodes["allFields"]);
 
-        // Handle search
+
         if (isset($request->search) && $inferSpatieCodes["searchable_fields"]) {
-            $query = $query->whereFullText(
+            $result = $result->whereFullText(
                 $inferSpatieCodes["searchable_fields"],
                 $request->search
             );
         }
 
-        // Handle sorting
-        if ($request->has('sortBy') && $request->has('sortDesc')) {
-            $sortBy = $request->input('sortBy');
-            $sortDesc = $request->input('sortDesc') === 'true' ? 'desc' : 'asc';
-
-            if (in_array($sortBy, $inferSpatieCodes["allFields"])) {
-                $query = $query->orderBy($sortBy, $sortDesc);
-            }
-        }
-
-        // Handle pagination
-        $page = $request->input('page', 1); // Default to first page
-        $itemsPerPage = $request->input('itemsPerPage', 15); // Default to 15 items per page
-        $paginatedResult = $query->paginate($itemsPerPage, ['*'], 'page', $page);
+        //$result = $result->get();
+        $perPage = $request->input('per_page', 15); // Default to 15 records per page
+        $result = $result->paginate($perPage);
 
         $response = array_merge(
             ['message' => $entityName . " list retrieved successfully!"],
-            $paginatedResult->toArray()
+            $result->toArray()
         );
 
         return [
@@ -112,7 +102,6 @@ class OrmApi
             "code" => 200,
         ];
     }
-
 
     public static function fetchByIdWithFullQueryExposure(Model $model, $id, $entityName = 'Item')
     {
