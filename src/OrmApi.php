@@ -75,10 +75,16 @@ class OrmApi
     {
         $inferSpatieCodes = self::inferSpatieCodes($model);
 
+        // Get the primary key of the model
+        $primaryKey = $model->getKeyName();
+
+        // Include the primary key in the allowed sorts
+        $allowedSorts = array_merge($inferSpatieCodes["allFields"], [$primaryKey]);
+
         $result = QueryBuilder::for(get_class($model))
             ->allowedIncludes($inferSpatieCodes["relations"])
             ->allowedFilters($inferSpatieCodes["allFields"])
-            ->allowedSorts($inferSpatieCodes["allFields"]);
+            ->allowedSorts($allowedSorts); // Add allowed sorts including primary key
 
         // Handle search
         if (isset($request->search) && $inferSpatieCodes["searchable_fields"]) {
@@ -102,6 +108,7 @@ class OrmApi
             "code" => 200,
         ];
     }
+
 
 
 
