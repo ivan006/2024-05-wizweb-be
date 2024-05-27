@@ -73,14 +73,14 @@ class OrmApi
 
     public static function fetchAllWithFullQueryExposure(Model $model, $request, $entityName = 'Item')
     {
-
         $inferSpatieCodes = self::inferSpatieCodes($model);
 
         $result = QueryBuilder::for(get_class($model))
             ->allowedIncludes($inferSpatieCodes["relations"])
-            ->allowedFilters($inferSpatieCodes["allFields"]);
+            ->allowedFilters($inferSpatieCodes["allFields"])
+            ->allowedSorts($inferSpatieCodes["allFields"]);
 
-
+        // Handle search
         if (isset($request->search) && $inferSpatieCodes["searchable_fields"]) {
             $result = $result->whereFullText(
                 $inferSpatieCodes["searchable_fields"],
@@ -88,7 +88,7 @@ class OrmApi
             );
         }
 
-        //$result = $result->get();
+        // Handle pagination
         $perPage = $request->input('per_page', 1000); // Default to 1000 records per page
         $result = $result->paginate($perPage);
 
@@ -102,6 +102,8 @@ class OrmApi
             "code" => 200,
         ];
     }
+
+
 
     public static function fetchByIdWithFullQueryExposure(Model $model, $id, $entityName = 'Item')
     {
