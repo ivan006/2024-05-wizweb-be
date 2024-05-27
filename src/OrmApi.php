@@ -96,7 +96,8 @@ class OrmApi
 
         // Handle pagination
         $perPage = $request->input('per_page', 1000); // Default to 1000 records per page
-        $result = $result->paginate($perPage);
+        $page = $request->input('page', 1); // Default to the first page
+        $result = $result->paginate($perPage, ['*'], 'page', $page);
 
         $response = array_merge(
             ['message' => $entityName . " list retrieved successfully!"],
@@ -108,6 +109,7 @@ class OrmApi
             "code" => 200,
         ];
     }
+
 
 
 
