@@ -127,7 +127,7 @@ class OrmApi
         return [
             "res" => [
                 'message' => $entityName . " retrieved successfully!",
-                'item' => $result,
+                'data' => $result,
             ],
             "code" => 200,
         ];
@@ -241,7 +241,7 @@ class OrmApi
                 "modelItem" => $modelItem,
                 "res" => [
                     'message' => $entityName . " created successfully!",
-                    'item' => $resultData,
+                    'data' => $resultData,
                 ],
                 "code" => 200,
             ];
@@ -402,7 +402,7 @@ class OrmApi
             "modelItem" => $item,
             "res" => [
                 'message' => $entityName . " updated successfully!",
-                'item' => $item->getAttributes(),
+                'data' => $item->getAttributes(),
             ],
             "code" => 200,
         ];
