@@ -424,9 +424,18 @@ class OrmApi
             $user = Auth::user();
             $itemId = $id;
 
+            // Find the model by ID
             $modelItem = $model->find($itemId);
 
-            //Log::info('xxx', ['id' => $modelItem]);
+            // If the model is not found, return a 404 error response
+            if (!$modelItem) {
+                return [
+                    "res" => [
+                        'message' => $entityName . ' not found',
+                    ],
+                    "code" => 404,
+                ];
+            }
 
             // Check if the user is allowed to update the item
             if (!$modelItem->updatable($request->all(), $modelItem)) {
@@ -438,7 +447,7 @@ class OrmApi
                 ];
             }
 
-            DB::transaction(function () use ($request, $model, $modelItem, $entityName, &$resultData) {
+            DB::transaction(function () use ($request, $model, &$modelItem, $entityName, &$resultData, $itemId) {
                 // Retrieve the high-level abstractor helper data
                 $inferValidation = self::inferValidation($model);
 
@@ -452,7 +461,16 @@ class OrmApi
                     $data = $request->all();
                 }
 
-                $modelItem->update(array_intersect_key($data, array_flip($fields)));
+                //$modelItem->update(array_intersect_key($data, array_flip($fields)));
+
+                $updated = DB::table($model->getTable())
+                    ->where($model->getKeyName(), $itemId)
+                    ->update(array_intersect_key($data, array_flip($fields)));
+
+                Log::info('Direct update result:', ['updated' => $updated]);
+
+                // Re-find the model to ensure it exists before completing the transaction
+                $modelItem = $model->find($itemId);
 
                 $children = self::recursiveUpdateOrAttachManyToManyRels($model, $request->all(), $modelItem);
 
@@ -462,8 +480,19 @@ class OrmApi
                 ];
             });
 
-            Log::info('Request Data:', ["dd" => $resultData]);
-
+            // Fetch the updated model from the database
+            try {
+                $modelItem = $model->findOrFail($itemId);
+            } catch (Exception $e) {
+                return [
+                    "res" => [
+                        'message' => 'An error occurred while fetching the updated data.',
+                        'exception_class' => get_class($e),
+                        'exception_message' => $e->getMessage(),
+                    ],
+                    "code" => 500,
+                ];
+            }
 
             return [
                 "modelItem" => $modelItem,
@@ -483,8 +512,6 @@ class OrmApi
                     "code" => 422,
                 ];
             } else {
-
-
                 return [
                     "res" => [
                         'message' => 'An unexpected error occurred. Please try again later.',
@@ -497,6 +524,7 @@ class OrmApi
             }
         }
     }
+
 
     public static function recursiveUpdateOrAttachManyToManyRels($model, $itemData, $updatedParent)
     {
