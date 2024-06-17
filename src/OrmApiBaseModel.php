@@ -6,6 +6,10 @@ use Illuminate\Support\Facades\Auth;
 
 abstract class OrmApiBaseModel extends Model
 {
+    public function fieldExtraInfo(){
+        return [];
+    }
+
     public function relationships(){
         return [];
     }
