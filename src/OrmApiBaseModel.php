@@ -6,10 +6,6 @@ use Illuminate\Support\Facades\Auth;
 
 abstract class OrmApiBaseModel extends Model
 {
-    public function fieldExtraInfo(){
-        return [];
-    }
-
     public function relationships(){
         return [];
     }
@@ -42,5 +38,10 @@ abstract class OrmApiBaseModel extends Model
     public function deletable($record)
     {
         return true;
+    }
+
+    public function fieldExtraInfo()
+    {
+        return [];
     }
 }
