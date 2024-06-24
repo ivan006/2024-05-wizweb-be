@@ -82,15 +82,16 @@ class OrmApi
         $primaryKey = $model->getKeyName();
 
         // Include the primary key in the allowed sorts
-        $allowedSorts = array_merge($inferSpatieCodes["allFields"], [$primaryKey]);
+        $allFieldsWithPrimary = array_merge($inferSpatieCodes["allFields"], [$primaryKey]);
 
         // Get listable conditions from the model
         $listableConditions = $model->listable();
 
         $result = QueryBuilder::for(get_class($model))
+            ->allowedFields($allFieldsWithPrimary)
             ->allowedIncludes($inferSpatieCodes["relations"])
-            ->allowedFilters($inferSpatieCodes["allFields"])
-            ->allowedSorts($allowedSorts) // Add allowed sorts including primary key
+            ->allowedFilters($allFieldsWithPrimary)
+            ->allowedSorts($allFieldsWithPrimary) // Add allowed sorts including primary key
             ->where($listableConditions); // Apply listable conditions
 
         // Handle search
