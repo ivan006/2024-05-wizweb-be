@@ -1,11 +1,13 @@
 <?php
-
+//HighLevelEloquentAbstractor
 namespace QuicklistsOrmApi;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
+use Spatie\QueryBuilder\AllowedFilter;
 use Spatie\QueryBuilder\QueryBuilder;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\Auth;
@@ -17,6 +19,8 @@ use ReflectionMethod;
 
 class OrmApi
 {
+    //Log::info('2024-13-06--12-53', ['$payload' =>  $data,"request"=>$request,]);
+
     public static function inferSpatieCodes(Model $model, $depth = 0, $maxDepth = 10, $visited = [])
     {
         $modelKey = get_class($model); // Unique identifier for the model class
@@ -36,24 +40,29 @@ class OrmApi
         $allFields = [...$model->getFillable()];
         $relations = [];
 
+        // Relationships types to check
+        $relationshipTypes = ['parentRelationships', 'spouseRelationships', 'childRelationships'];
+
         // Limit the recursion depth to prevent infinite loops
         if ($depth < $maxDepth) {
-            if (method_exists($model, 'relationships') && is_array($model->relationships())) {
-                foreach ($model->relationships() as $relationship) {
-                    if (method_exists($model, $relationship)) {
-                        $relations[] = $relationship;
+            foreach ($relationshipTypes as $relationshipType) {
+                if (method_exists($model, $relationshipType) && is_array($model->$relationshipType())) {
+                    foreach ($model->$relationshipType() as $relationship => $config) {
+                        if (method_exists($model, $relationship)) {
+                            $relations[] = $relationship;
 
-                        $relationModel = $model->$relationship()->getRelated();
-                        $relatedFieldNames = $relationModel->getFillable();
+                            $relationModel = $model->$relationship()->getRelated();
+                            $relatedFieldNames = $relationModel->getFillable();
 
-                        foreach ($relatedFieldNames as $attribute) {
-                            $allFields[] = "{$relationship}.{$attribute}";
-                        }
+                            foreach ($relatedFieldNames as $attribute) {
+                                $allFields[] = "{$relationship}.{$attribute}";
+                            }
 
-                        // Recursively gather nested relationships and rules
-                        $nestedResult = self::inferSpatieCodes($relationModel, $depth + 1, $maxDepth, $visited);
-                        foreach ($nestedResult['relations'] as $nestedRelation) {
-                            $relations[] = "{$relationship}.{$nestedRelation}";
+                            // Recursively gather nested relationships and rules
+                            $nestedResult = self::inferSpatieCodes($relationModel, $depth + 1, $maxDepth, $visited);
+                            foreach ($nestedResult['relations'] as $nestedRelation) {
+                                $relations[] = "{$relationship}.{$nestedRelation}";
+                            }
                         }
                     }
                 }
@@ -74,6 +83,7 @@ class OrmApi
         return $result;
     }
 
+
     public static function fetchAllWithFullQueryExposure(Model $model, $request, $entityName = 'Item')
     {
         $inferSpatieCodes = self::inferSpatieCodes($model);
@@ -83,6 +93,10 @@ class OrmApi
 
         // Include the primary key in the allowed sorts
         $allFieldsWithPrimary = array_merge($inferSpatieCodes["allFields"], [$primaryKey]);
+        $exactFilters = array_map(function ($field) {
+            return AllowedFilter::exact($field);
+        }, $allFieldsWithPrimary);
+
 
         // Get listable conditions from the model
         $listableConditions = $model->listable();
@@ -90,7 +104,7 @@ class OrmApi
         $result = QueryBuilder::for(get_class($model))
             ->allowedFields($allFieldsWithPrimary)
             ->allowedIncludes($inferSpatieCodes["relations"])
-            ->allowedFilters($allFieldsWithPrimary)
+            ->allowedFilters($exactFilters)
             ->allowedSorts($allFieldsWithPrimary) // Add allowed sorts including primary key
             ->where($listableConditions); // Apply listable conditions
 
@@ -127,13 +141,14 @@ class OrmApi
             ->allowedFilters($inferSpatieCodes["allFields"])
             ->find($id);
 
-        // Check if the current user can read this record
-        if (!$model->readable($result)) {
+        try {
+            self::beforeRead($model, $result);
+        } catch (ValidationException $e) {
             return [
                 "res" => [
-                    'message' => 'Unauthorized',
+                    'message' => $e->getMessage(),
                 ],
-                "code" => 403,
+                "code" => $e->status,
             ];
         }
 
@@ -146,10 +161,13 @@ class OrmApi
         ];
     }
 
+
+
     public static function beforeCreate($data, $model, $request)
     {
         if (!$model->creatable($data)) {
-            throw ValidationException::withMessages(['Unauthorized' => 'Unauthorized to create item'])->status(403);
+            $message = method_exists($model, 'creatable_msg') ? $model->creatable_msg($data) : 'Unauthorized to create ' . $model->humanReadableNameSingular();
+            throw ValidationException::withMessages(['Unauthorized' => $message]);
         }
 
         $extraInfo = $model->fieldExtraInfo();
@@ -172,11 +190,11 @@ class OrmApi
     }
 
 
-
     public static function beforeUpdate($data, $modelItem)
     {
         if (!$modelItem->updatable($data, $modelItem)) {
-            throw ValidationException::withMessages(['Unauthorized' => 'Unauthorized to update item'])->status(403);
+            $message = method_exists($modelItem, 'updatable_msg') ? $modelItem->updatable_msg($data) : 'Unauthorized to update ' . $modelItem->humanReadableNameSingular();
+            throw ValidationException::withMessages(['Unauthorized' => $message]);
         }
 
         $extraInfo = $modelItem->fieldExtraInfo();
@@ -187,6 +205,62 @@ class OrmApi
         }
         return $data;
     }
+
+
+    public static function normalizeRelationItem($relationItemPayloadOrRecord)
+    {
+        if (is_array($relationItemPayloadOrRecord)) {
+            return $relationItemPayloadOrRecord;
+        } elseif (is_object($relationItemPayloadOrRecord)) {
+            return $relationItemPayloadOrRecord->toArray();
+        }
+        return [];
+    }
+
+    public static function beforeAttach($config, $relationItem, $currentItem, $request)
+    {
+        if (isset($config['attachable']) && is_callable($config['attachable'])) {
+
+            $attachable = $config['attachable']($relationItem, $currentItem, $request);
+            if (!$attachable) {
+                $message = $config['attachable_msg'] ?? 'Unauthorized to attach item';
+                throw ValidationException::withMessages(['Unauthorized' => $message])->status(403);
+            }
+        }
+    }
+
+    public static function beforeDetach($config, $relationItemPayload, $currentItem, $request)
+    {
+        if (isset($config['detachable']) && is_callable($config['detachable'])) {
+            $detachable = $config['detachable']($relationItemPayload, $currentItem, $request);
+            if (!$detachable) {
+                $message = $config['detachable_msg'] ?? 'Unauthorized to detach item';
+                throw ValidationException::withMessages(['Unauthorized' => $message])->status(403);
+            }
+        }
+    }
+
+
+
+    public static function beforeDelete($model, $record)
+    {
+        if (!$model->deletable($record)) {
+            $message = method_exists($model, 'deletable_msg') ? $model->deletable_msg() : 'Unauthorized to delete ' . $model->humanReadableNameSingular();
+            throw ValidationException::withMessages(['Unauthorized' => $message]);
+        }
+    }
+
+    public static function beforeRead($model, $record)
+    {
+        if (!$model->readable($record)) {
+            $message = method_exists($model, 'readable_msg') ? $model->readable_msg() : 'Unauthorized to read ' . $model->humanReadableNameSingular();
+            throw ValidationException::withMessages(['Unauthorized' => $message]);
+        }
+    }
+
+
+
+
 
 
 
@@ -216,34 +290,36 @@ class OrmApi
             }
         }
 
+        // Relationships types to check
+        $relationshipTypes = ['parentRelationships', 'spouseRelationships', 'childRelationships'];
+
         // Limit the recursion depth to prevent infinite loops
         if ($depth < $maxDepth) {
-            if (method_exists($model, 'relationships') && is_array($model->relationships())) {
-                foreach ($model->relationships() as $relationship) {
-                    if (method_exists($model, $relationship)) {
+            foreach ($relationshipTypes as $relationshipType) {
+                if (method_exists($model, $relationshipType) && is_array($model->$relationshipType())) {
+                    foreach ($model->$relationshipType() as $relationship => $config) {
+                        if (method_exists($model, $relationship)) {
+                            $refMethod = new ReflectionMethod(get_class($model), $relationship);
+                            $relationshipInvoked = $refMethod->invoke($model);
 
-                        $refMethod = new ReflectionMethod(get_class($model), $relationship);
+                            if ($relationshipInvoked instanceof Relation) {
+                                //$relationType = class_basename(get_class($model->$relationship()));
 
-                        $relationshipInvoked = $refMethod->invoke($model);
-
-                        if ($relationshipInvoked instanceof Relation) {
-
-                            $relationType = class_basename(get_class($model->$relationship()));
-
-                            if ($relationType == "BelongsToMany") {
-
-                            } else if ($relationType == "HasMany") {
-                                $exceptionToRule = $model->$relationship()->getForeignKeyName();
+                                //if ($relationType == "BelongsToMany") {
+                                if ($relationshipType == "spouseRelationships") {
+                                    // No specific action for BelongsToMany in validation
+                                } else if ($relationshipType == "childRelationships") {
+                                    $exceptionToRule = $model->$relationship()->getForeignKeyName();
+                                }
                             }
 
-                        }
+                            $relationModel = $model->$relationship()->getRelated();
 
-                        $relationModel = $model->$relationship()->getRelated();
+                            $nestedResult = self::inferValidation($relationModel, $depth + 1, $maxDepth, $visited, $exceptionToRule);
 
-                        $nestedResult = self::inferValidation($relationModel, $depth + 1, $maxDepth, $visited, $exceptionToRule);
-
-                        foreach ($nestedResult['validationRules'] as $field => $rule) {
-                            $validationRules["{$relationship}.*.{$field}"] = $rule;
+                            foreach ($nestedResult['validationRules'] as $field => $rule) {
+                                $validationRules["{$relationship}.*.{$field}"] = $rule;
+                            }
                         }
                     }
                 }
@@ -256,6 +332,8 @@ class OrmApi
 
         return $result;
     }
+
+
 
     public static function createItemWithOptionalBulkRelations($request, $model, $entityName = 'Item')
     {
@@ -314,49 +392,67 @@ class OrmApi
     public static function recursiveCreateOrAttach($model, $itemData, $createdParent, $request)
     {
         $result = [];
-        $relationships = [];
+        $relationshipTypes = ['parentRelationships', 'spouseRelationships', 'childRelationships'];
 
-        if (method_exists($model, 'relationships') && is_array($model->relationships())) {
-            $relationships = $model->relationships();
-        }
+        foreach ($relationshipTypes as $relationshipType) {
+            if (method_exists($model, $relationshipType) && is_array($model->$relationshipType())) {
+                foreach ($model->$relationshipType() as $relationshipName => $config) {
+                    if (isset($itemData[$relationshipName])) {
+                        $relationItems = $itemData[$relationshipName];
+                        //$relationType = self::getRelationType($model, $relationshipName);
+                        $relatedModel = $model->$relationshipName()->getRelated();
+                        $pKey = $relatedModel->getKeyName();
 
-        foreach ($relationships as $relationshipName) {
-            if (isset($itemData[$relationshipName])) {
-                $relationItems = $itemData[$relationshipName];
-                $relationType = self::getRelationType($model, $relationshipName);
-                $relatedModel = $model->$relationshipName()->getRelated();
-                $pKey = $relatedModel->getKeyName();
+                        foreach ($relationItems as $relationItem) {
 
-                foreach ($relationItems as $relationItem) {
-                    $relationItem = self::beforeCreate($relationItem, $relatedModel, $request);
+                            if ($relationshipType == "spouseRelationships") {
+                                if (isset($relationItem[$pKey]) && $relationItem[$pKey] != 0) {
+                                    $existingItem = $relatedModel->find($relationItem[$pKey]);
+                                    if($existingItem){
+                                        // Add check before spouse attach
+                                        self::beforeAttach($config, $existingItem, $createdParent, $request);
+                                        $createdParent->$relationshipName()->attach($relationItem[$pKey]);
+                                        $result[$relationshipName][] = $createdParent->$relationshipName()->find($relationItem[$pKey]);
+                                    }
+                                } else {
+                                    $relationItem = self::beforeCreate($relationItem, $relatedModel, $request);
+                                    $createdChild = $relatedModel->create($relationItem);
+                                    self::beforeAttach($config, $createdChild, $createdParent, $request);
 
-                    if ($relationType == "BelongsToMany") {
-                        if (isset($relationItem[$pKey]) && $relationItem[$pKey] != 0) {
-                            $createdParent->$relationshipName()->attach($relationItem[$pKey]);
-                            $result[$relationshipName][] = $createdParent->$relationshipName()->find($relationItem[$pKey]);
-                        } else {
-                            $createdChild = $createdParent->$relationshipName()->create($relationItem);
-                            $children = self::recursiveCreateOrAttach($relatedModel, $relationItem, $createdChild, $request);
-                            $result[$relationshipName][] = [
-                                ...$createdChild->getAttributes(),
-                                ...$children
-                            ];
+                                    // Add check before spouse create and attach
+                                    $createdParent->$relationshipName()->attach($createdChild->id);
+                                    $createdChild->refresh();
+                                    $children = self::recursiveCreateOrAttach($relatedModel, $relationItem, $createdChild, $request);
+                                    $result[$relationshipName][] = [
+                                        ...$createdChild->getAttributes(),
+                                        ...$children
+                                    ];
+                                }
+                            } elseif ($relationshipType == "childRelationships") {
+                                if (isset($relationItem[$pKey]) && $relationItem[$pKey] != 0) {
+                                    $createdChild = $createdParent->$relationshipName()->find($relationItem[$pKey]);
+                                    $createdChild->update($relationItem);
+                                } else {
+                                    $relationItem = self::beforeCreate($relationItem, $relatedModel, $request);
+                                    $createdChild = $relatedModel->create($relationItem);
+                                    // Add check before child create and attach
+                                    self::beforeAttach($config, $createdChild, $createdParent, $request);
+                                    $createdParent->$relationshipName()->save($createdChild);
+                                    $createdChild->refresh();
+                                }
+                                $children = self::recursiveCreateOrAttach($relatedModel, $relationItem, $createdChild, $request);
+                                $result[$relationshipName][] = [
+                                    ...$createdChild->getAttributes(),
+                                    ...$children
+                                ];
+                            } elseif ($relationshipType == "parentRelationships") {
+                                $parent = $relatedModel->find($relationItem[$pKey]);
+                                // Add check before parent attach
+                                self::beforeAttach($config, $parent, $createdParent, $request);
+                                $createdParent->$relationshipName()->associate($parent);
+                                $createdParent->save();
+                            }
                         }
-                    } elseif ($relationType == "HasMany") {
-                        if (isset($relationItem[$pKey]) && $relationItem[$pKey] != 0) {
-                            $createdChild = $createdParent->$relationshipName()->find($relationItem[$pKey]);
-                            $createdChild->update($relationItem);
-                        } else {
-                            $createdChild = $createdParent->$relationshipName()->create($relationItem);
-                        }
-                        $children = self::recursiveCreateOrAttach($relatedModel, $relationItem, $createdChild, $request);
-                        $result[$relationshipName][] = [
-                            ...$createdChild->getAttributes(),
-                            ...$children
-                        ];
-                    } elseif ($relationType == "BelongsTo") {
-                        $createdParent->$relationshipName()->associate($relatedModel->find($relationItem[$pKey]));
-                        $createdParent->save();
                     }
                 }
             }
@@ -364,6 +460,232 @@ class OrmApi
 
         return $result;
     }
+
+
+
+
+    public static function recursiveUpdateOrAttachManyToManyRels($model, $itemData, $updatedParent, $request)
+    {
+        $result = [];
+        $relationshipTypes = ['parentRelationships', 'spouseRelationships', 'childRelationships'];
+
+        $m2mRelConfigs = $request->get('m2mRelConfigs', []);
+
+        foreach ($relationshipTypes as $relationshipType) {
+            if (method_exists($model, $relationshipType) && is_array($model->$relationshipType())) {
+                foreach ($model->$relationshipType() as $relationshipName => $config) {
+                    if (isset($itemData[$relationshipName])) {
+                        $relationItems = $itemData[$relationshipName];
+                        //$relationType = self::getRelationType($model, $relationshipName);
+                        $relatedModel = $model->$relationshipName()->getRelated();
+                        $pKey = $relatedModel->getKeyName();
+                        $relatedTable = $relatedModel->getTable();
+
+                        if ($relationshipType == "spouseRelationships" || $relationshipType == "childRelationships") {
+
+                            $m2mRelConfig = collect($m2mRelConfigs)->firstWhere('rel', $relationshipName);
+
+                            // Existing related item IDs
+                            $currentRelatedIds = $updatedParent->$relationshipName()->pluck($pKey)->toArray();
+
+                            // New related item IDs
+                            $newRelatedIds = array_column($relationItems, $pKey);
+
+                            // Items to detach
+                            $detachIds = array_diff($currentRelatedIds, $newRelatedIds);
+
+                            // Detach items not in the new list
+                            foreach ($detachIds as $detachId) {
+                                $relationItemPayload = $relatedModel->find($detachId);
+                                if ($relationItemPayload) {
+                                    self::beforeDetach($config, $relationItemPayload, $updatedParent, $request);
+                                    $updatedParent->$relationshipName()->detach($detachId);
+                                }
+                            }
+
+                            foreach ($relationItems as $relationItemPayload) {
+                                if (isset($relationItemPayload[$pKey]) && !empty($relationItemPayload[$pKey]) && $relationItemPayload[$pKey] != 0) {
+                                    if ($m2mRelConfig && isset($m2mRelConfig['action']) && $m2mRelConfig['action'] === 'detach') {
+                                        if ($relationshipType == "spouseRelationships") {
+                                            // Add check before spouse detach
+                                            self::beforeDetach($config, $relationItemPayload, $updatedParent, $request);
+                                            // Detach the relation item
+                                            $updatedParent->$relationshipName()->detach($relationItemPayload[$pKey]);
+                                        } elseif ($relationshipType == "childRelationships") {
+                                            // Add check before child detach
+                                            self::beforeDetach($config, $relationItemPayload, $updatedParent, $request);
+                                            // Handle detaching logic for HasMany if needed
+                                            // For HasMany, you might need to delete or disassociate the item
+                                            $relatedModel->where($pKey, $relationItemPayload[$pKey])->delete();
+                                        }
+                                    } else {
+                                        $existingItem = $relatedModel->find($relationItemPayload[$pKey]);
+
+                                        if ($existingItem) {
+                                            $relationItemPayload = self::beforeUpdate($relationItemPayload, $existingItem);
+                                            if ($relationshipType == "spouseRelationships") {
+                                                $existingItem->update($relationItemPayload);
+                                                $existingRelation = $updatedParent->$relationshipName()
+                                                    ->where("{$relatedTable}.{$pKey}", $relationItemPayload[$pKey])
+                                                    ->exists();
+                                                if (!$existingRelation) {
+                                                    // Add check before spouse attach
+                                                    self::beforeAttach($config, $existingRelation, $updatedParent, $request);
+                                                    $updatedParent->$relationshipName()->attach($relationItemPayload[$pKey]);
+                                                }
+                                            } elseif ($relationshipType == "childRelationships") {
+                                                $existingItem->update($relationItemPayload);
+                                            }
+                                            $children = self::recursiveUpdateOrAttachManyToManyRels($relatedModel, $relationItemPayload, $existingItem, $request);
+                                            $result[$relationshipName][] = [
+                                                ...$existingItem->getAttributes(),
+                                                ...$children
+                                            ];
+                                        }
+                                    }
+                                } else {
+                                    if ($m2mRelConfig && isset($m2mRelConfig['action'])) {
+                                        if ($m2mRelConfig['action'] === 'createOrAttachSimilar') {
+                                            $similarItem = false;
+                                            if (isset($m2mRelConfig['compareOn'])) {
+                                                $compareOnField = $m2mRelConfig['compareOn'];
+                                                $compareMode = $m2mRelConfig['compareMode'] ?? 'direct';
+
+                                                $normalizedValue = self::normalizeString($relationItemPayload[$compareOnField], $compareMode);
+
+                                                if ($compareMode === 'sluggify') {
+                                                    $slugifiedValue = Str::slug($normalizedValue);
+                                                    $similarItem = $relatedModel
+                                                        ->whereRaw("REPLACE(REPLACE(LOWER($compareOnField), ' ', '-'), '--', '-') = ?", [$slugifiedValue])
+                                                        ->first();
+                                                } else {
+                                                    $similarItem = $relatedModel
+                                                        ->whereRaw("LOWER(TRIM($compareOnField)) = ?", [strtolower(trim($normalizedValue))])
+                                                        ->first();
+                                                }
+                                            }
+
+                                            if ($similarItem) {
+                                                //$relationItemPayload = self::beforeUpdate($relationItemPayload, $similarItem);
+                                                //$similarItem->update($relationItemPayload);
+
+
+                                                if ($relationshipType == "spouseRelationships") {
+
+                                                    $existingRelation = $updatedParent->$relationshipName()
+                                                        ->where("{$relatedTable}.{$pKey}", $similarItem->$pKey)
+                                                        ->exists();
+
+                                                    if (!$existingRelation) {
+                                                        // Add check before spouse attach
+                                                        self::beforeAttach($config, $existingRelation, $updatedParent, $request);
+                                                        $updatedParent->$relationshipName()->attach($similarItem->$pKey);
+                                                    }
+                                                }
+
+                                                $children = self::recursiveUpdateOrAttachManyToManyRels($relatedModel, $relationItemPayload, $similarItem, $request);
+                                                $result[$relationshipName][] = [
+                                                    ...$similarItem->getAttributes(),
+                                                    ...$children
+                                                ];
+                                            } else {
+                                                $relationItemPayload = self::beforeCreate($relationItemPayload, $relatedModel, $request);
+
+                                                $createdChild = $relatedModel->create($relationItemPayload);
+                                                // Add check before child or spouse attach
+                                                self::beforeAttach($config, $createdChild, $updatedParent, $request);
+                                                if ($relationshipType == "spouseRelationships") {
+                                                    $updatedParent->$relationshipName()->attach($createdChild->id);
+                                                } elseif ($relationshipType == "childRelationships") {
+                                                    $updatedParent->$relationshipName()->save($createdChild);
+                                                }
+                                                $createdChild->refresh();
+
+                                                $children = self::recursiveUpdateOrAttachManyToManyRels($relatedModel, $relationItemPayload, $createdChild, $request);
+                                                $result[$relationshipName][] = [
+                                                    ...$createdChild->getAttributes(),
+                                                    ...$children
+                                                ];
+                                            }
+                                        }
+                                    } else {
+                                        $relationItemPayload = self::beforeCreate($relationItemPayload, $relatedModel, $request);
+
+                                        $createdChild = $relatedModel->create($relationItemPayload);
+                                        // Add check before child or spouse attach
+                                        self::beforeAttach($config, $createdChild, $updatedParent, $request);
+                                        if ($relationshipType == "spouseRelationships") {
+                                            $updatedParent->$relationshipName()->attach($createdChild->id);
+                                        } elseif ($relationshipType == "childRelationships") {
+                                            $updatedParent->$relationshipName()->save($createdChild);
+                                        }
+                                        $createdChild->refresh();
+
+                                        $children = self::recursiveUpdateOrAttachManyToManyRels($relatedModel, $relationItemPayload, $createdChild, $request);
+                                        $result[$relationshipName][] = [
+                                            ...$createdChild->getAttributes(),
+                                            ...$children
+                                        ];
+                                    }
+                                }
+                            }
+                        } elseif ($relationshipType == "parentRelationships") {
+                            $relationItemPayload = $itemData[$relationshipName];
+
+                            if (isset($relationItemPayload[$pKey]) && !empty($relationItemPayload[$pKey]) && $relationItemPayload[$pKey] != 0) {
+                                $existingItem = $relatedModel->find($relationItemPayload[$pKey]);
+
+                                if ($existingItem) {
+                                    $relationItemPayload = self::beforeUpdate($relationItemPayload, $existingItem);
+                                    $existingItem->update($relationItemPayload);
+                                    // Add check before parent attach
+                                    self::beforeAttach($config, $existingItem, $updatedParent, $request);
+                                    $updatedParent->$relationshipName()->associate($existingItem);
+                                    $updatedParent->save();
+                                    $result[$relationshipName] = $existingItem->getAttributes();
+                                }
+                            } else {
+                                $relationItemPayload = self::beforeCreate($relationItemPayload, $relatedModel, $request);
+                                $createdParent = $relatedModel->create($relationItemPayload);
+                                // Add check before parent attach
+                                self::beforeAttach($config, $createdParent, $updatedParent, $request);
+                                $updatedParent->$relationshipName()->associate($createdParent);
+                                $updatedParent->save();
+                                $result[$relationshipName] = $createdParent->getAttributes();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return $result;
+    }
+
+
+    public static function customSync($relation, $relatedIds, $detaching = true)
+    {
+        // Get the current related items
+        $currentRelatedItems = $relation->get();
+
+        // Detach items that are not in the new related IDs
+        if ($detaching) {
+            foreach ($currentRelatedItems as $item) {
+                if (!in_array($item->id, $relatedIds)) {
+                    // Run beforeDetach logic
+                    $config = $relation->getRelated()->parentRelationships()[$relation->getRelationName()] ?? [];
+                    self::beforeDetach($config, $item, $relation->getParent(), request());
+
+                    // Detach the item
+                    $relation->detach($item->id);
+                }
+            }
+        }
+
+        // Attach new items
+        $relation->sync($relatedIds, false);
+    }
+
 
 
 
@@ -402,26 +724,29 @@ class OrmApi
                     return;
                 }
 
-                if (!$model->deletable($item)) {
+                try {
+                    self::beforeDelete($model, $item);
+                } catch (ValidationException $e) {
                     $response = [
-                        'message' => 'Unauthorized',
+                        'message' => $e->getMessage(),
                     ];
-                    $code = 403;
+                    $code = $e->status;
                     return;
                 }
 
                 $parentsToDelete = $request->input('parentsToDelete', []);
-                $relationships = [];
+                $relationshipTypes = ['parentRelationships', 'spouseRelationships', 'childRelationships'];
 
-                if (method_exists($model, 'relationships') && is_array($model->relationships())) {
-                    $relationships = $model->relationships();
-                }
-                foreach ($relationships as $relationshipName) {
-                    $relationType = self::getRelationType($model, $relationshipName);
-                    if ($relationType == "BelongsTo" && in_array($relationshipName, $parentsToDelete)) {
-                        $parent = $item->$relationshipName;
-                        if ($parent) {
-                            $parent->delete();
+                foreach ($relationshipTypes as $relationshipType) {
+                    if (method_exists($model, $relationshipType) && is_array($model->$relationshipType())) {
+                        foreach ($model->$relationshipType() as $relationshipName => $config) {
+                            //$relationType = self::getRelationType($model, $relationshipName);
+                            if ($relationshipType == "parentRelationships" && in_array($relationshipName, $parentsToDelete)) {
+                                $parent = $item->$relationshipName;
+                                if ($parent) {
+                                    $parent->delete();
+                                }
+                            }
                         }
                     }
                 }
@@ -459,6 +784,9 @@ class OrmApi
         }
     }
 
+
+
+
     public static function updateItem($request, $model, $id, $entityName = 'Item')
     {
         try {
@@ -468,15 +796,11 @@ class OrmApi
             DB::transaction(function () use ($request, $model, $modelItem, $entityName, &$resultData) {
                 $fields = $model->getFillable();
 
-
                 if (str_contains($request->header('Content-Type'), 'multipart/form-data')) {
-                    //$data = self::parseMultipartFormDataForPatchRequest($request);
                     $data = self::parseMultipartFormDataForPatchRequest($request);
                 } else {
                     $data = $request->all();
                 }
-
-                //Log::info('2024-13-06--12-53', ['$payload' =>  $data,"request"=>$request,]);
 
                 $data = self::beforeUpdate($data, $modelItem);
 
@@ -519,6 +843,32 @@ class OrmApi
             ];
         }
     }
+
+
+
+
+    public static function normalizeString($string, $mode)
+    {
+        $result = $string;
+        switch ($mode) {
+            case 'lowercase':
+                $result = strtolower(trim($string));
+            case 'uppercase':
+                $result = strtoupper(trim($string));
+            case 'trim':
+                $result = trim($string);
+            case 'sluggify':
+                $result = Str::slug($string);
+            case 'direct':
+                $result = $string;
+        }
+        return $result;
+    }
+
+
+
+
+
 
 
 
@@ -586,125 +936,6 @@ class OrmApi
 
         $current = $value;
     }
-
-
-    public static function recursiveUpdateOrAttachManyToManyRels($model, $itemData, $updatedParent, $request)
-    {
-        $result = [];
-        $relationships = [];
-
-        if (method_exists($model, 'relationships') && is_array($model->relationships())) {
-            $relationships = $model->relationships();
-        }
-
-        foreach ($relationships as $relationshipName) {
-            if (isset($itemData[$relationshipName])) {
-                $relationItems = $itemData[$relationshipName];
-                $relationType = self::getRelationType($model, $relationshipName);
-                $relatedModel = $model->$relationshipName()->getRelated();
-                $pKey = $relatedModel->getKeyName();
-
-                if ($relationType == "BelongsToMany" || $relationType == "HasMany") {
-                    foreach ($relationItems as $relationItemPayload) {
-                        if (isset($relationItemPayload[$pKey]) && !empty($relationItemPayload[$pKey]) && $relationItemPayload[$pKey] != 0) {
-
-
-
-                            $existingItem = $relatedModel->find($relationItemPayload[$pKey]);
-
-                            if ($existingItem) {
-                                $relationItemPayload = self::beforeUpdate($relationItemPayload, $existingItem);
-
-                                if ($relationType == "BelongsToMany") {
-                                    $existingItem->update($relationItemPayload);
-
-                                    $existingRelation = $updatedParent->$relationshipName()
-                                        ->where($pKey, $relationItemPayload[$pKey])
-                                        ->exists();
-                                    if (!$existingRelation) {
-                                        $updatedParent->$relationshipName()->syncWithoutDetaching([$relationItemPayload[$pKey]]);
-                                    }
-                                } elseif ($relationType == "HasMany") {
-                                    $existingItem->update($relationItemPayload);
-                                }
-
-                                $children = self::recursiveUpdateOrAttachManyToManyRels($relatedModel, $relationItemPayload, $existingItem, $request);
-                                $result[$relationshipName][] = [
-                                    ...$existingItem->getAttributes(),
-                                    ...$children
-                                ];
-                            }
-
-
-
-                        } else {
-
-
-
-                            $relationItemPayload = self::beforeCreate($relationItemPayload, $relatedModel, $request);
-
-                            if ($relationType == "BelongsToMany") {
-                                $createdChild = $updatedParent->$relationshipName()->create($relationItemPayload);
-                                $updatedParent->$relationshipName()->syncWithoutDetaching([$createdChild->id]);
-
-                                $children = self::recursiveUpdateOrAttachManyToManyRels($relatedModel, $relationItemPayload, $createdChild, $request);
-                                $result[$relationshipName][] = [
-                                    ...$createdChild->getAttributes(),
-                                    ...$children
-                                ];
-                            } elseif ($relationType == "HasMany") {
-                                $createdChild = $updatedParent->$relationshipName()->create($relationItemPayload);
-
-                                $children = self::recursiveUpdateOrAttachManyToManyRels($relatedModel, $relationItemPayload, $createdChild, $request);
-                                $result[$relationshipName][] = [
-                                    ...$createdChild->getAttributes(),
-                                    ...$children
-                                ];
-                            }
-
-
-
-                        }
-                    }
-                } elseif ($relationType == "BelongsTo") {
-
-                    $relationItemPayload = $itemData[$relationshipName];
-
-                    if (isset($relationItemPayload[$pKey]) && !empty($relationItemPayload[$pKey]) && $relationItemPayload[$pKey] != 0) {
-
-
-                        $existingItem = $relatedModel->find($relationItemPayload[$pKey]);
-
-                        if ($existingItem) {
-                            $relationItemPayload = self::beforeUpdate($relationItemPayload, $existingItem);
-                            $existingItem->update($relationItemPayload);
-                            $updatedParent->$relationshipName()->associate($existingItem);
-                            $updatedParent->save();
-                            $result[$relationshipName] = $existingItem->getAttributes();
-                        }
-
-
-                    } else {
-
-
-                        $relationItemPayload = self::beforeCreate($relationItemPayload, $relatedModel, $request);
-                        $createdParent = $relatedModel->create($relationItemPayload);
-                        $updatedParent->$relationshipName()->associate($createdParent);
-                        $updatedParent->save();
-                        $result[$relationshipName] = $createdParent->getAttributes();
-
-
-                    }
-                }
-            }
-        }
-
-        return $result;
-    }
-
-
-
-
 
 
 
