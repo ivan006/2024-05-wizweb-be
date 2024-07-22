@@ -21,7 +21,7 @@ class OrmApi
 {
     //Log::info('2024-13-06--12-53', ['$payload' =>  $data,"request"=>$request,]);
 
-    public static function inferSpatieCodes(Model $model, $depth = 0, $maxDepth = 10, $visited = [])
+    public static function inferSpatieCodes(Model $model, $depth = 0, $maxDepth = 5, $visited = [])
     {
         $modelKey = get_class($model); // Unique identifier for the model class
 
