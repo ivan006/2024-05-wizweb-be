@@ -37,7 +37,9 @@ class OrmApi
         // Add this model to the visited list
         $visited[] = $modelKey;
 
-        $allFields = [...$model->getFillable()];
+        //$allFields = [...$model->getFillable()];
+        $allFields = array_merge($model->getFillable(), [$model->getKeyName()]);
+
         $relations = [];
 
         // Relationships types to check
@@ -52,7 +54,8 @@ class OrmApi
                             $relations[] = $relationship;
 
                             $relationModel = $model->$relationship()->getRelated();
-                            $relatedFieldNames = $relationModel->getFillable();
+                            //$relatedFieldNames = $relationModel->getFillable();
+                            $relatedFieldNames = array_merge($relationModel->getFillable(), [$relationModel->getKeyName()]);
 
                             foreach ($relatedFieldNames as $attribute) {
                                 $allFields[] = "{$relationship}.{$attribute}";
