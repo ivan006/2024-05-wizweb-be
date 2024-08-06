@@ -271,7 +271,7 @@ class OrmApi
 
 
 
-    public static function inferValidation(Model $model, $depth = 0, $maxDepth = 10, $visited = [], $exceptionToRule = null)
+    public static function inferValidation(Model $model, $depth = 0, $maxDepth = 5, $visited = [], $exceptionToRule = null)
     {
         $modelKey = get_class($model); // Unique identifier for the model class
 
