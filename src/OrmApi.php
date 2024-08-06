@@ -96,8 +96,9 @@ class OrmApi
 
         // Include the primary key in the allowed sorts
         $allFieldsWithPrimary = array_merge($inferSpatieCodes["allFields"], [$primaryKey]);
-        $exactFilters = array_map(function ($field) {
-            return AllowedFilter::exact($field);
+        $filters = array_map(function ($field) {
+            //return AllowedFilter::exact($field);
+            return AllowedFilter::partial($field);
         }, $allFieldsWithPrimary);
 
 
@@ -107,8 +108,10 @@ class OrmApi
         $result = QueryBuilder::for(get_class($model))
             ->allowedFields($allFieldsWithPrimary)
             ->allowedIncludes($inferSpatieCodes["relations"])
-            ->allowedFilters($exactFilters)
+            //->allowedFilters($allFieldsWithPrimary))
+            ->allowedFilters($filters)
             ->allowedSorts($allFieldsWithPrimary) // Add allowed sorts including primary key
+            //->withCount($request->withCount ? $request->withCount : null)
             ->where($listableConditions); // Apply listable conditions
 
         // Handle search
