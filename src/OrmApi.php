@@ -291,7 +291,12 @@ class OrmApi
         if (method_exists($model, 'rules')) {
             foreach ($model->rules() as $field => $rule) {
                 if ($field !== $exceptionToRule) {
-                    $validationRules[$field] = $rule;
+                    if ($rule == "required"){
+                        $validationRules[$field] = 'sometimes|'.$rule;
+                        //$validationRules[$field] = $rule;
+                    } else {
+                        $validationRules[$field] = $rule;
+                    }
                 }
             }
         }
@@ -800,7 +805,14 @@ class OrmApi
             $modelItem = $model->find($itemId);
 
             DB::transaction(function () use ($request, $model, $modelItem, $entityName, &$resultData) {
+
+                $inferValidation = self::inferValidation($model);
+                $validationRules = $inferValidation['validationRules'];
                 $fields = $model->getFillable();
+
+                if (method_exists($model, 'rules')) {
+                    $request->validate($validationRules);
+                }
 
                 if (str_contains($request->header('Content-Type'), 'multipart/form-data')) {
                     $data = self::parseMultipartFormDataForPatchRequest($request);
