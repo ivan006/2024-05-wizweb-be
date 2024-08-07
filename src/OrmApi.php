@@ -177,7 +177,26 @@ class OrmApi
         }
 
         $extraInfo = $model->fieldExtraInfo();
-        $subfolder = $request->query('subfolder', 'uploads'); // Default to 'uploads' if no subfolder is specified
+        foreach ($extraInfo as $field => $info) {
+            if (isset($info['ontologyType']) && $info['ontologyType'] === 'file' && isset($data[$field])) {
+                if (is_a($data[$field], 'Illuminate\Http\UploadedFile')) {
+                    // Set file fields to null in the data to be saved initially
+                    $data[$field] = null;
+                }
+            }
+        }
+
+        return $data;
+    }
+
+
+
+    public static function afterCreate($model, $record, $request)
+    {
+        $extraInfo = $model->fieldExtraInfo();
+        $modelName = class_basename($model); // Get the model class name
+        $recordId = $record->id;
+        $subfolder = $request->query('subfolder', "${modelName}/${recordId}"); // Default to "${modelName}/${recordId}" if no subfolder is specified
 
         // Ensure the subfolder exists
         if (!Storage::disk('public')->exists($subfolder)) {
@@ -185,15 +204,23 @@ class OrmApi
         }
 
         foreach ($extraInfo as $field => $info) {
-            if (isset($info['ontologyType']) && $info['ontologyType'] === 'file' && isset($data[$field])) {
-                if (is_a($data[$field], 'Illuminate\Http\UploadedFile')) {
+            if (isset($info['ontologyType']) && $info['ontologyType'] === 'file' && $request->hasFile($field)) {
+                $file = $request->file($field);
+                if ($file) {
                     // Handle single file upload
-                    $data[$field] = $data[$field]->store($subfolder, 'public');
+                    $filePath = $file->store($subfolder, 'public');
+                    // Update the field with the file path
+                    $record->$field = $filePath;
                 }
             }
         }
-        return $data;
+
+        // Save the updated record
+        $record->save();
+
+        return $record;
     }
+
 
 
     public static function beforeUpdate($data, $modelItem)
@@ -291,12 +318,7 @@ class OrmApi
         if (method_exists($model, 'rules')) {
             foreach ($model->rules() as $field => $rule) {
                 if ($field !== $exceptionToRule) {
-                    if ($rule == "required"){
-                        $validationRules[$field] = 'sometimes|'.$rule;
-                        //$validationRules[$field] = $rule;
-                    } else {
-                        $validationRules[$field] = $rule;
-                    }
+                    $validationRules[$field] = $rule;
                 }
             }
         }
@@ -352,6 +374,8 @@ class OrmApi
             DB::transaction(function () use ($request, $model, $entityName, &$resultData, &$modelItem) {
                 $inferValidation = self::inferValidation($model);
                 $validationRules = $inferValidation['validationRules'];
+
+
                 $fields = $model->getFillable();
 
                 if (method_exists($model, 'rules')) {
@@ -363,6 +387,9 @@ class OrmApi
                 $data = self::beforeCreate($data, $model, $request);
 
                 $modelItem = $model->create(array_intersect_key($data, array_flip($fields)));
+
+                $modelItem = self::afterCreate($model, $modelItem, $request);
+
                 $children = self::recursiveCreateOrAttach($model, $request->all(), $modelItem, $request);
 
                 $resultData = [
@@ -428,6 +455,8 @@ class OrmApi
                                 } else {
                                     $relationItem = self::beforeCreate($relationItem, $relatedModel, $request);
                                     $createdChild = $relatedModel->create($relationItem);
+                                    $createdChild = self::afterCreate($relatedModel, $createdChild, $request);
+
                                     self::beforeAttach($config, $createdChild, $createdParent, $request);
 
                                     // Add check before spouse create and attach
@@ -446,6 +475,8 @@ class OrmApi
                                 } else {
                                     $relationItem = self::beforeCreate($relationItem, $relatedModel, $request);
                                     $createdChild = $relatedModel->create($relationItem);
+                                    $createdChild = self::afterCreate($relatedModel, $createdChild, $request);
+
                                     // Add check before child create and attach
                                     self::beforeAttach($config, $createdChild, $createdParent, $request);
                                     $createdParent->$relationshipName()->save($createdChild);
@@ -603,6 +634,8 @@ class OrmApi
                                                 $relationItemPayload = self::beforeCreate($relationItemPayload, $relatedModel, $request);
 
                                                 $createdChild = $relatedModel->create($relationItemPayload);
+                                                $createdChild = self::afterCreate($relatedModel, $createdChild, $request);
+
                                                 // Add check before child or spouse attach
                                                 self::beforeAttach($config, $createdChild, $updatedParent, $request);
                                                 if ($relationshipType == "spouseRelationships") {
@@ -623,6 +656,8 @@ class OrmApi
                                         $relationItemPayload = self::beforeCreate($relationItemPayload, $relatedModel, $request);
 
                                         $createdChild = $relatedModel->create($relationItemPayload);
+                                        $createdChild = self::afterCreate($relatedModel, $createdChild, $request);
+
                                         // Add check before child or spouse attach
                                         self::beforeAttach($config, $createdChild, $updatedParent, $request);
                                         if ($relationshipType == "spouseRelationships") {
@@ -658,6 +693,8 @@ class OrmApi
                             } else {
                                 $relationItemPayload = self::beforeCreate($relationItemPayload, $relatedModel, $request);
                                 $createdParent = $relatedModel->create($relationItemPayload);
+                                $createdParent = self::afterCreate($relatedModel, $createdParent, $request);
+
                                 // Add check before parent attach
                                 self::beforeAttach($config, $createdParent, $updatedParent, $request);
                                 $updatedParent->$relationshipName()->associate($createdParent);
@@ -808,6 +845,15 @@ class OrmApi
 
                 $inferValidation = self::inferValidation($model);
                 $validationRules = $inferValidation['validationRules'];
+
+                foreach($validationRules as $vKey => $vVal){
+                    if ($vVal == "required"){
+                        $validationRules[$vKey] = 'sometimes|'.$vVal;
+                    } else {
+                        $validationRules[$vKey] = $vVal;
+                    }
+                }
+
                 $fields = $model->getFillable();
 
                 if (method_exists($model, 'rules')) {
