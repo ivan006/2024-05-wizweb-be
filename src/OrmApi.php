@@ -1,7 +1,6 @@
 <?php
 //HighLevelEloquentAbstractor
 namespace QuicklistsOrmApi;
-
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Http\Request;
@@ -387,8 +386,6 @@ class OrmApi
         try {
             DB::transaction(function () use ($request, $model, $entityName, &$resultData, &$modelItem) {
                 $inferValidation = self::inferValidation($model);
-
-                Log::info('2024-13-06--12-53', ['$payload' => $inferValidation,]);
                 $validationRules = $inferValidation['validationRules'];
 
 
@@ -849,6 +846,13 @@ class OrmApi
             $modelItem = $model->find($itemId);
 
             DB::transaction(function () use ($request, $model, $modelItem, $entityName, &$resultData) {
+                if (str_contains($request->header('Content-Type'), 'multipart/form-data')) {
+                    $data = self::parseMultipartFormDataForPatchRequest($request);
+                    $request->merge($data);
+                } else {
+                    $data = $request->all();
+                }
+
 
                 $inferValidation = self::inferValidation($model);
                 $validationRules = $inferValidation['validationRules'];
@@ -866,12 +870,6 @@ class OrmApi
 
                 if (method_exists($model, 'rules')) {
                     $request->validate($validationRules);
-                }
-
-                if (str_contains($request->header('Content-Type'), 'multipart/form-data')) {
-                    $data = self::parseMultipartFormDataForPatchRequest($request);
-                } else {
-                    $data = $request->all();
                 }
 
                 $data = self::beforeUpdate($data, $modelItem);
@@ -935,71 +933,98 @@ class OrmApi
         return $result;
     }
 
-
     public static function parseMultipartFormDataForPatchRequest($request)
     {
-        $data = [];
-        $input = $request->getContent();
-        $boundary = substr($input, 0, strpos($input, "\r\n"));
+        $data = []; // Initialize an empty array to hold parsed data
+        $input = $request->getContent(); // Get the raw content of the request
+        $boundary = substr($input, 0, strpos($input, "\r\n")); // Extract the boundary string from the raw content
 
+        // If no boundary is found, return the empty data array
         if (empty($boundary)) {
             return $data;
         }
 
+        // Split the input into parts using the boundary string, ignore the first empty part
         $parts = array_slice(explode($boundary, $input), 1);
 
         foreach ($parts as $part) {
+            // Break the loop if the end boundary is found
             if ($part == "--\r\n") break;
 
+            // Trim whitespace from the part
             $part = trim($part);
+            // Skip empty parts
             if (empty($part)) continue;
+
+            // Ensure the part contains headers and content
+            $rawHeaders = '';
+            $content = '';
 
             if (strpos($part, "\r\n\r\n") !== false) {
                 list($rawHeaders, $content) = explode("\r\n\r\n", $part, 2);
-                $rawHeaders = explode("\r\n", $rawHeaders);
-                $headers = [];
+            } else {
+                $rawHeaders = $part;
+                $content = '';
+            }
 
-                foreach ($rawHeaders as $header) {
-                    list($name, $value) = explode(':', $header);
-                    $headers[strtolower(trim($name))] = trim($value);
-                }
+            $rawHeaders = explode("\r\n", $rawHeaders);
+            $headers = [];
 
-                if (isset($headers['content-disposition'])) {
-                    if (preg_match('/name="(?<name>[^"]+)"(; filename="(?<filename>[^"]+)")?/', $headers['content-disposition'], $matches)) {
-                        $name = $matches['name'];
-                        if (isset($matches['filename'])) {
-                            $filename = $matches['filename'];
-                            $tmpName = tempnam(sys_get_temp_dir(), 'upl');
-                            file_put_contents($tmpName, $content);
-                            self::assignNestedArrayValue($data, $name, new \Illuminate\Http\UploadedFile($tmpName, $filename, null, null, true));
-                        } else {
-                            self::assignNestedArrayValue($data, $name, $content);
-                        }
+            // Parse headers into an associative array
+            foreach ($rawHeaders as $header) {
+                list($name, $value) = explode(':', $header);
+                $headers[strtolower(trim($name))] = trim($value);
+            }
+
+            // If the part contains content-disposition header
+            if (isset($headers['content-disposition'])) {
+                // Match the name and filename (if present) from the header
+                if (preg_match('/name="(?<name>[^"]+)"(; filename="(?<filename>[^"]+)")?/', $headers['content-disposition'], $matches)) {
+                    $name = $matches['name'];
+                    // If filename is present, treat it as a file upload
+                    if (isset($matches['filename'])) {
+                        $filename = $matches['filename'];
+                        $tmpName = tempnam(sys_get_temp_dir(), 'upl'); // Create a temporary file
+                        file_put_contents($tmpName, $content); // Write the content to the temporary file
+                        $data = self::assignNestedArrayValue($data, $name, new \Illuminate\Http\UploadedFile($tmpName, $filename, null, null, true));
+                    } else {
+                        // If content is empty, set it to empty string; otherwise, use the content
+                        $value = strlen(trim($content)) == 0 ? "" : $content;
+                        $data = self::assignNestedArrayValue($data, $name, $value);
                     }
                 }
             }
         }
 
-        return $data;
+        return $data; // Return the parsed data array
     }
 
 
-    public static function assignNestedArrayValue(&$array, $path, $value)
-    {
-        $keys = preg_split('/[\[\]]+/', $path, -1, PREG_SPLIT_NO_EMPTY);
-        $current = &$array;
 
+
+    public static function assignNestedArrayValue($array, $path, $value)
+    {
+        // Split the path into keys based on square brackets
+        $keys = preg_split('/[\[\]]+/', $path, -1, PREG_SPLIT_NO_EMPTY);
+        $current = &$array; // Reference to the current level of the array
+
+        // Iterate over each key and traverse/build the array structure
         foreach ($keys as $key) {
             if (!isset($current[$key])) {
-                $current[$key] = [];
-            } elseif (!is_array($current[$key])) {
-                $current[$key] = [];
+                $current[$key] = []; // Create a new array if the key does not exist
             }
-            $current = &$current[$key];
+            $current = &$current[$key]; // Move the reference to the next level
         }
 
-        $current = $value;
+        $current = $value; // Set the value at the final level
+        return $array; // Return the modified array
     }
+
+
+
+
+
+
 
 
 }
