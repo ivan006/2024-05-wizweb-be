@@ -168,7 +168,6 @@ class OrmApi
     }
 
 
-
     public static function beforeCreate($data, $model, $request)
     {
         if (!$model->creatable($data)) {
@@ -188,7 +187,6 @@ class OrmApi
 
         return $data;
     }
-
 
 
     public static function afterCreate($model, $record, $request)
@@ -220,7 +218,6 @@ class OrmApi
 
         return $record;
     }
-
 
 
     public static function beforeUpdate($data, $modelItem)
@@ -274,7 +271,6 @@ class OrmApi
     }
 
 
-
     public static function beforeDelete($model, $record)
     {
         if (!$model->deletable($record)) {
@@ -290,12 +286,6 @@ class OrmApi
             throw ValidationException::withMessages(['Unauthorized' => $message]);
         }
     }
-
-
-
-
-
-
 
 
     public static function inferValidation(Model $model, $depth = 0, $maxDepth = 5, $visited = [], $exceptionToRule = null)
@@ -318,10 +308,17 @@ class OrmApi
         if (method_exists($model, 'rules')) {
             foreach ($model->rules() as $field => $rule) {
                 if ($field !== $exceptionToRule) {
-                    $validationRules[$field] = $rule;
+
+                    if ($rule == "required_without_primary") {
+                        $primary = $model->getKeyName();
+                        $validationRules[$field] = "required_without:{$primary}";
+                    } else {
+                        $validationRules[$field] = $rule;
+                    }
                 }
             }
         }
+
 
         // Relationships types to check
         $relationshipTypes = ['parentRelationships', 'spouseRelationships', 'childRelationships'];
@@ -351,8 +348,26 @@ class OrmApi
                             $nestedResult = self::inferValidation($relationModel, $depth + 1, $maxDepth, $visited, $exceptionToRule);
 
                             foreach ($nestedResult['validationRules'] as $field => $rule) {
-                                $validationRules["{$relationship}.*.{$field}"] = $rule;
+
+                                if ($rule == "required_without_primary") {
+                                    $primary = $relationModel->getKeyName();
+                                    $validationRules["{$relationship}.*.{$field}"] = "required_without:{$relationship}.*.{$primary}";
+                                } else if (str_starts_with($rule, 'required_without:')) {
+                                    $prefix = 'required_without:';
+                                    $str = $rule;
+                                    if (substr($str, 0, strlen($prefix)) == $prefix) {
+                                        $str = substr($str, strlen($prefix));
+                                    }
+                                    $validationRules["{$relationship}.*.{$field}"] = "required_without:{$relationship}.*.{$str}";
+
+                                } else {
+                                    $validationRules["{$relationship}.*.{$field}"] = $rule;
+                                }
+                                //$validationRules[$field] = $rule;
+
                             }
+
+
                         }
                     }
                 }
@@ -367,12 +382,13 @@ class OrmApi
     }
 
 
-
     public static function createItemWithOptionalBulkRelations($request, $model, $entityName = 'Item')
     {
         try {
             DB::transaction(function () use ($request, $model, $entityName, &$resultData, &$modelItem) {
                 $inferValidation = self::inferValidation($model);
+
+                Log::info('2024-13-06--12-53', ['$payload' => $inferValidation,]);
                 $validationRules = $inferValidation['validationRules'];
 
 
@@ -426,7 +442,6 @@ class OrmApi
     }
 
 
-
     public static function recursiveCreateOrAttach($model, $itemData, $createdParent, $request)
     {
         $result = [];
@@ -446,7 +461,7 @@ class OrmApi
                             if ($relationshipType == "spouseRelationships") {
                                 if (isset($relationItem[$pKey]) && $relationItem[$pKey] != 0) {
                                     $existingItem = $relatedModel->find($relationItem[$pKey]);
-                                    if($existingItem){
+                                    if ($existingItem) {
                                         // Add check before spouse attach
                                         self::beforeAttach($config, $existingItem, $createdParent, $request);
                                         $createdParent->$relationshipName()->attach($relationItem[$pKey]);
@@ -502,8 +517,6 @@ class OrmApi
 
         return $result;
     }
-
-
 
 
     public static function recursiveUpdateOrAttachManyToManyRels($model, $itemData, $updatedParent, $request)
@@ -735,9 +748,6 @@ class OrmApi
     }
 
 
-
-
-
     public static function getRelationType($model, $relationshipName)
     {
         $result = "";
@@ -755,7 +765,6 @@ class OrmApi
         }
         return $result;
     }
-
 
 
     public static function deleteItem($model, $id, $entityName, $request)
@@ -833,8 +842,6 @@ class OrmApi
     }
 
 
-
-
     public static function updateItem($request, $model, $id, $entityName = 'Item')
     {
         try {
@@ -846,12 +853,13 @@ class OrmApi
                 $inferValidation = self::inferValidation($model);
                 $validationRules = $inferValidation['validationRules'];
 
-                foreach($validationRules as $vKey => $vVal){
-                    if ($vVal == "required"){
-                        $validationRules[$vKey] = 'sometimes|'.$vVal;
-                    } else {
-                        $validationRules[$vKey] = $vVal;
-                    }
+                foreach ($validationRules as $vKey => $vVal) {
+                    //if ($vVal == "required"){
+                    //    $validationRules[$vKey] = 'sometimes|'.$vVal;
+                    //} else {
+                    //    $validationRules[$vKey] = $vVal;
+                    //}
+                    $validationRules[$vKey] = $vVal;
                 }
 
                 $fields = $model->getFillable();
@@ -909,8 +917,6 @@ class OrmApi
     }
 
 
-
-
     public static function normalizeString($string, $mode)
     {
         $result = $string;
@@ -928,12 +934,6 @@ class OrmApi
         }
         return $result;
     }
-
-
-
-
-
-
 
 
     public static function parseMultipartFormDataForPatchRequest($request)
@@ -1002,5 +1002,5 @@ class OrmApi
     }
 
 
-
 }
+
