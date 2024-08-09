@@ -5,6 +5,7 @@ namespace QuicklistsOrmApi\Console\Commands\Scaffolding;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use QuicklistsOrmApi\Console\Commands\WordSplitter;
 use QuicklistsOrmApi\Console\Commands\ModelRelationHelper;
@@ -67,17 +68,31 @@ class GenerateLaravelModels extends Command
                     $autoIncrement = $fieldName;
                 }
 
+                //Log::info("Processing table: {$tableName}");
+                //Log::info("Column: {$fieldName}");
+
+                // Log the detected foreign keys for this table
+                //Log::info("Detected foreign keys: ", $relations['foreignKeys']);
+
+                // Check if this column is recognized as a foreign key
                 if (in_array($fieldName, array_column($relations['foreignKeys'], 'COLUMN_NAME'))) {
                     $relationshipName = Str::camel(Str::singular(preg_replace('/(_?id)$/i', '', $fieldName)));
                     if (in_array(strtolower($relationshipName), $attributeNames)) {
                         $relationshipName .= 'Rel';
                     }
+                    //Log::info("Column {$fieldName} is recognized as a foreign key.");
 
                     $relationshipName = Str::snake($relationshipName);
+                    //$relationshipName = Str::camel(Str::singular(preg_replace('/(_?id)$/i', '', $fieldName)));
+                    //Log::info("Generated relationship name: {$relationshipName}");
+
+                    // Additional logic processing...
 
                     $relatedModel = $this->relationHelper->getRelatedModelName($fieldName, $relations['foreignKeys']);
                     $parentRelationships[] = "'$relationshipName' => []";
                     $belongsToMethods[] = $this->generateBelongsToMethod($relatedModel, $relationshipName, $fieldName);
+                } else {
+                    //Log::info("Column {$fieldName} is NOT recognized as a foreign key.");
                 }
             }
 

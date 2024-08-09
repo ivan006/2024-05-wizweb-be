@@ -3,19 +3,26 @@
 namespace QuicklistsOrmApi\Console\Commands;
 
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class ModelRelationHelper
 {
     public function getModelRelations($tableName, $columns)
     {
+        $databaseName = config('database.connections.mysql.database');
+        
         $foreignKeys = DB::select("SELECT
             COLUMN_NAME,
             REFERENCED_TABLE_NAME,
             REFERENCED_COLUMN_NAME,
             CONSTRAINT_NAME
             FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE
-            WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND REFERENCED_COLUMN_NAME IS NOT NULL", [env('DB_DATABASE'), $tableName]);
+            WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND REFERENCED_COLUMN_NAME IS NOT NULL", [$databaseName, $tableName]);
+
+        //Log::info('Foreign keys detected:', $foreignKeys);
+        //Log::info('xx:', [$databaseName, $tableName]);
+
 
         $hasManyRelations = DB::select("SELECT
             TABLE_NAME,
@@ -23,7 +30,7 @@ class ModelRelationHelper
             REFERENCED_COLUMN_NAME,
             CONSTRAINT_NAME
             FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE
-            WHERE TABLE_SCHEMA = ? AND REFERENCED_TABLE_NAME = ?", [env('DB_DATABASE'), $tableName]);
+            WHERE TABLE_SCHEMA = ? AND REFERENCED_TABLE_NAME = ?", [$databaseName, $tableName]);
 
         $foreignKeysArray = [];
         $hasManyArray = [];
