@@ -6,13 +6,32 @@ use Illuminate\Support\ServiceProvider;
 
 class OrmApiProvider extends ServiceProvider
 {
-    public function register()
-    {
-        // This can be left empty if you don't need to register anything specific.
-    }
-
+    /**
+     * Bootstrap any application services.
+     *
+     * @return void
+     */
     public function boot()
     {
-        // This can also be left empty if you don't have any bootstrapping code.
+        if ($this->app->runningInConsole()) {
+            // Register commands in the Scaffolding directory
+            $this->commands([
+                \QuicklistsOrmApi\Console\Commands\Scaffolding\GenerateApiControllersAndRoutes::class,
+                \QuicklistsOrmApi\Console\Commands\Scaffolding\GenerateLaravelModels::class,
+                \QuicklistsOrmApi\Console\Commands\Scaffolding\GenerateMigrations::class,
+                \QuicklistsOrmApi\Console\Commands\Scaffolding\GenerateVueComponents::class,
+                \QuicklistsOrmApi\Console\Commands\Scaffolding\GenerateVuexOrmModels::class,
+            ]);
+        }
+    }
+
+    /**
+     * Register any application services.
+     *
+     * @return void
+     */
+    public function register()
+    {
+        // Register any package services here
     }
 }
