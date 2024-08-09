@@ -79,7 +79,7 @@ class GenerateApiControllersAndRoutes extends Command
         return <<<EOT
 <?php
 
-namespace QuicklistsOrmApi\Http\Controllers\Api;
+namespace App\Http\Controllers\Api;
 
 use QuicklistsOrmApi\OrmApi;
 use QuicklistsOrmApi\Http\Controllers\Controller;

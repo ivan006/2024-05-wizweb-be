@@ -124,7 +124,7 @@ class GenerateLaravelModels extends Command
             $phpModel = <<<EOT
 <?php
 
-namespace QuicklistsOrmApi\Models;
+namespace App\Models;
 
 use QuicklistsOrmApi\OrmApiBaseModel;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
