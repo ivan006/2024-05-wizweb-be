@@ -1,6 +1,7 @@
 <?php
 //HighLevelEloquentAbstractor
 namespace QuicklistsOrmApi;
+
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Http\Request;
@@ -308,12 +309,12 @@ class OrmApi
             foreach ($model->rules() as $field => $rule) {
                 if ($field !== $exceptionToRule) {
 
-                    if ($rule == "required_without_primary") {
-                        $primary = $model->getKeyName();
-                        $validationRules[$field] = "required_without:{$primary}";
-                    } else {
-                        $validationRules[$field] = $rule;
-                    }
+                    //if ($rule == "required_without_primary") {
+                    //    $primary = $model->getKeyName();
+                    //    $validationRules[$field] = "min:1|required_without:{$primary}";
+                    //} else {
+                    $validationRules[$field] = $rule;
+                    //}
                 }
             }
         }
@@ -348,21 +349,20 @@ class OrmApi
 
                             foreach ($nestedResult['validationRules'] as $field => $rule) {
 
-                                if ($rule == "required_without_primary") {
-                                    $primary = $relationModel->getKeyName();
-                                    $validationRules["{$relationship}.*.{$field}"] = "required_without:{$relationship}.*.{$primary}";
-                                } else if (str_starts_with($rule, 'required_without:')) {
-                                    $prefix = 'required_without:';
-                                    $str = $rule;
-                                    if (substr($str, 0, strlen($prefix)) == $prefix) {
-                                        $str = substr($str, strlen($prefix));
-                                    }
-                                    $validationRules["{$relationship}.*.{$field}"] = "required_without:{$relationship}.*.{$str}";
-
-                                } else {
-                                    $validationRules["{$relationship}.*.{$field}"] = $rule;
-                                }
-                                //$validationRules[$field] = $rule;
+                                //if ($rule == "required_without_primary") {
+                                //    $primary = $relationModel->getKeyName();
+                                //    $validationRules["{$relationship}.*.{$field}"] = "min:1|required_without:{$relationship}.*.{$primary}";
+                                //} else if (str_starts_with($rule, 'min:1|required_without:')) {
+                                //    $prefix = 'min:1|required_without:';
+                                //    $str = $rule;
+                                //    if (substr($str, 0, strlen($prefix)) == $prefix) {
+                                //        $str = substr($str, strlen($prefix));
+                                //    }
+                                //    $validationRules["{$relationship}.*.{$field}"] = "{$prefix}{$relationship}.*.{$str}";
+                                //
+                                //} else {
+                                $validationRules["{$relationship}.*.{$field}"] = $rule;
+                                //}
 
                             }
 
@@ -389,6 +389,7 @@ class OrmApi
                 $validationRules = $inferValidation['validationRules'];
 
 
+                //Log::info('2024-13-06--12-53', ['$payload' =>  $data,"request"=>$request,]);
                 $fields = $model->getFillable();
 
                 if (method_exists($model, 'rules')) {
@@ -1000,8 +1001,6 @@ class OrmApi
     }
 
 
-
-
     public static function assignNestedArrayValue($array, $path, $value)
     {
         // Split the path into keys based on square brackets
@@ -1021,11 +1020,7 @@ class OrmApi
     }
 
 
-
-
-
-
-
-
 }
+
+
 
