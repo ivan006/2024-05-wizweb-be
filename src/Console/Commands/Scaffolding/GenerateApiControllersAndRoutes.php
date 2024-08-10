@@ -10,7 +10,7 @@ use QuicklistsOrmApi\Console\Commands\WordSplitter;
 
 class GenerateApiControllersAndRoutes extends Command
 {
-    protected $signature = 'generate:api-controllers-and-routes';
+    protected $signature = 'generate:ql-api-c';
     protected $description = 'Generate API controllers and routes from database schema';
     protected $wordSplitter;
 

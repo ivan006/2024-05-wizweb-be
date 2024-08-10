@@ -10,7 +10,7 @@ use QuicklistsOrmApi\Console\Commands\WordSplitter;
 
 class GenerateVueComponents extends Command
 {
-    protected $signature = 'generate:vue-components';
+    protected $signature = 'generate:ql-ui-c';
     protected $description = 'Generate Vue component files for each model and a router file';
     protected $wordSplitter;
 

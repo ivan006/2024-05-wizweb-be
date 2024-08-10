@@ -12,7 +12,7 @@ use QuicklistsOrmApi\Console\Commands\ModelRelationHelper;
 
 class GenerateLaravelModels extends Command
 {
-    protected $signature = 'generate:laravel-models';
+    protected $signature = 'generate:ql-api-m';
     protected $description = 'Generate Laravel models from database schema with relationships, rules, fillable attributes, and table name';
     protected $wordSplitter;
     protected $relationHelper;
