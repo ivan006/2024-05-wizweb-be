@@ -82,8 +82,8 @@ class GenerateApiControllersAndRoutes extends Command
 namespace App\Http\Controllers\Api;
 
 use QuicklistsOrmApi\OrmApi;
-use QuicklistsOrmApi\Http\Controllers\Controller;
-use QuicklistsOrmApi\Models\\$modelName;
+use App\Http\Controllers\Controller;
+use App\Models\\$modelName;
 use Illuminate\Http\Request;
 
 class $controllerName extends Controller
