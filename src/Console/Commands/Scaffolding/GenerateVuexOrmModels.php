@@ -11,7 +11,7 @@ use QuicklistsOrmApi\Console\Commands\ModelRelationHelper;
 
 class GenerateVuexOrmModels extends Command
 {
-    protected $signature = 'generate:vuex-orm-models';
+    protected $signature = 'generate:ql-ui-m';
     protected $description = 'Generate Vuex ORM models from database schema';
     protected $wordSplitter;
     protected $relationHelper;
@@ -205,17 +205,24 @@ EOT;
             return strtolower($column->Field);
         }, $columns);
 
+        // Handle belongsTo relationships
         foreach ($foreignKeys as $foreignKey) {
             $relationFieldName = $foreignKey['COLUMN_NAME'];
             $relatedModel = $foreignKey['RELATED_MODEL'];
             $relationName = $this->generateRelationName($relationFieldName, $existingFields);
 
+            // Check if this relationship already exists
+            if (isset($relations[$relationName])) {
+                $relationName .= Str::studly($relationFieldName);
+            }
+
             $segmentationResult = $this->wordSplitter->split($relatedModel);
             $segmentedModelName = implode('', array_map('ucfirst', $segmentationResult['words']));
 
-            $relations[] = "'$relationName': this.belongsTo($segmentedModelName, '$relationFieldName')";
+            $relations[$relationName] = "'$relationName': this.belongsTo($segmentedModelName, '$relationFieldName')";
         }
 
+        // Handle hasMany relationships
         $groupedHasMany = $this->relationHelper->groupHasManyRelations($hasManyRelations);
         foreach ($groupedHasMany as $model => $relationsArray) {
             foreach ($relationsArray as $relation) {
@@ -223,19 +230,20 @@ EOT;
                 $relatedModel = $relation['RELATED_MODEL'];
 
                 // Check for conflicts in hasMany relation names
-                if (in_array(strtolower($relationName), $existingFields)) {
-                    $relationName .= ucfirst(Str::camel($relation['COLUMN_NAME']));
+                if (isset($relations[$relationName])) {
+                    $relationName .= Str::studly($relation['COLUMN_NAME']);
                 }
 
                 $segmentationResult = $this->wordSplitter->split($relatedModel);
                 $segmentedModelName = implode('', array_map('ucfirst', $segmentationResult['words']));
 
-                $relations[] = "'$relationName': this.hasMany($segmentedModelName, '{$relation['COLUMN_NAME']}')";
+                $relations[$relationName] = "'$relationName': this.hasMany($segmentedModelName, '{$relation['COLUMN_NAME']}')";
             }
         }
 
         return implode(",\n            ", $relations);
     }
+
 
     protected function generateRelationName($fieldName, $existingFields)
     {
@@ -266,10 +274,10 @@ EOT;
             $segmentationResult = $this->wordSplitter->split($relatedModel);
             $segmentedModelName = implode('', array_map('ucfirst', $segmentationResult['words']));
             $relatedModelFile = implode('', array_map('ucfirst', $segmentationResult['words']));
-            return "import $segmentedModelName from 'src/models/$relatedModelFile';";
+            return "import $segmentedModelName from 'src/models/orm-api/$relatedModelFile';";
         }, $relatedModels);
 
-        array_unshift($imports, "import MyBaseModel from 'src/models/model-helpers/MyBaseModel';", "import router from 'src/router';");
+        array_unshift($imports, "import MyBaseModel from 'src/models/helpers/MyBaseModel';", "import router from 'src/router';");
         return implode("\n", $imports);
     }
 
@@ -277,7 +285,7 @@ EOT;
     protected function generateStoreFile($models)
     {
         $imports = array_map(function($model) {
-            return "import {$model['modelName']} from 'src/models/{$model['modelName']}';";
+            return "import {$model['modelName']} from 'src/models/orm-api/{$model['modelName']}';";
         }, $models);
 
         $registrations = array_map(function($model) {
