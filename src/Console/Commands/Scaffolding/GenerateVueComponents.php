@@ -92,7 +92,7 @@ class GenerateVueComponents extends Command
 <script>
 import { SuperTable } from 'quicklists-vue-orm-ui'
 import $modelName from 'src/models/orm-api/$modelName'
-import router from '@/router'
+import router from 'src/router'
 
 export default {
     name: '$modelName-list',
