@@ -91,7 +91,7 @@ class GenerateVueComponents extends Command
 
 <script>
 import { SuperTable } from 'quicklists-vue-orm-ui'
-import $modelName from '@/models/$modelName'
+import $modelName from 'src/models/orm-api/$modelName'
 import router from '@/router'
 
 export default {
@@ -147,7 +147,7 @@ EOT;
 
 <script>
 import { SuperRecord } from 'quicklists-vue-orm-ui'
-import $modelName from '@/models/$modelName'
+import $modelName from 'src/models/orm-api/$modelName'
 
 export default {
     name: '$modelName-read',
