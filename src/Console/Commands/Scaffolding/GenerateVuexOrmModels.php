@@ -274,7 +274,7 @@ EOT;
             $segmentationResult = $this->wordSplitter->split($relatedModel);
             $segmentedModelName = implode('', array_map('ucfirst', $segmentationResult['words']));
             $relatedModelFile = implode('', array_map('ucfirst', $segmentationResult['words']));
-            return "import $segmentedModelName from 'src/models/orm-api/$relatedModelFile';";
+            return "import $segmentedModelName from 'src/models/$relatedModelFile';";
         }, $relatedModels);
 
         array_unshift($imports, "import MyBaseModel from 'src/models/helpers/MyBaseModel';", "import router from 'src/router';");
@@ -285,7 +285,7 @@ EOT;
     protected function generateStoreFile($models)
     {
         $imports = array_map(function($model) {
-            return "import {$model['modelName']} from 'src/models/orm-api/{$model['modelName']}';";
+            return "import {$model['modelName']} from 'src/models/{$model['modelName']}';";
         }, $models);
 
         $registrations = array_map(function($model) {
