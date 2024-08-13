@@ -114,11 +114,12 @@ export default {
         },
     },
     methods: {
-        openRecord(e) {
+        openRecord(item) {
             //router.push({
-            //    name: '/lists/$pluralKebabModel/:rId',
+            //    name: '/lists/$pluralKebabModel/:rId/:rName',
             //    params: {
-            //        rId: e.id,
+            //        rId: item.id,
+            //        rName: item.name,
             //    },
             //})
         },

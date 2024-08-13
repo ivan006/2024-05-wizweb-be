@@ -81,9 +81,10 @@ export default class $modelName extends MyBaseModel {
     static titleKey = '$primaryKey';
     static openRecord(pKey){
       router.push({
-        name: '/lists/$pluralTableName/:rId',
+        name: '/lists/$pluralTableName/:rId/:rName',
         params: {
           rId: pKey,
+          rName: pKey,
         },
       })
     }
