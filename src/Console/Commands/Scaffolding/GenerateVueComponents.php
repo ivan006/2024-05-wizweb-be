@@ -82,7 +82,7 @@ class GenerateVueComponents extends Command
                 :user="user"
                 :showMap="true"
                 :model="superTableModel"
-                @update:modelValue="openRecord"
+                @clickRow="openRecord"
                 :displayMapField="false"
             />
         </q-card>
@@ -115,13 +115,13 @@ export default {
     },
     methods: {
         openRecord(item) {
-            //router.push({
-            //    name: '/lists/$pluralKebabModel/:rId/:rName',
-            //    params: {
-            //        rId: item.id,
-            //        rName: item.name,
-            //    },
-            //})
+            this.\$router.push({
+                name: '/lists/$pluralKebabModel/:rId/:rName',
+                params: {
+                    rId: item.id,
+                    rName: item.name,
+                },
+            })
         },
     },
 }
