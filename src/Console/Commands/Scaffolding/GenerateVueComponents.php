@@ -103,14 +103,6 @@ export default {
         superTableModel() {
             return $modelName
         },
-        user() {
-          let result = {}
-          // if (this.\$store.getters['entities/login-sessions/all']()?.[0]){
-          //   const id = this.\$store.getters['entities/login-sessions/all']()?.[0]?.\$id
-          //   result = this.\$store.state.entities['login-sessions'].data[id]?.user
-          // }
-          return result
-        },
     },
     methods: {
         openRecord(item) {
@@ -154,14 +146,6 @@ export default {
     computed: {
         superRecordModel() {
             return $modelName
-        },
-        user() {
-          let result = {}
-          // if (this.\$store.getters['entities/login-sessions/all']()?.[0]){
-          //   const id = this.\$store.getters['entities/login-sessions/all']()?.[0]?.\$id
-          //   result = this.\$store.state.entities['login-sessions'].data[id]?.user
-          // }
-          return result
         },
     },
 }
