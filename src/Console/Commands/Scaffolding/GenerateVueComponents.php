@@ -79,7 +79,6 @@ class GenerateVueComponents extends Command
     <div>
         <q-card class="q-pa-md q-mt-md">
             <SuperTable
-                :user="user"
                 :showMap="true"
                 :model="superTableModel"
                 @clickRow="openRecord"
@@ -139,7 +138,6 @@ EOT;
                 :model="superRecordModel"
                 :id="+\$route.params.rId"
                 :displayMapField="true"
-                :user="user"
             >
             </SuperRecord>
         </q-card>
