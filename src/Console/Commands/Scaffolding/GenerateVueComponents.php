@@ -218,11 +218,10 @@ EOT;
         $menuLinks = array_map(function ($route) {
             $titleCaseText = ucwords(str_replace('-', ' ', Str::plural($route['kebab'])));
             return <<<EOT
-                        {
-                            icon: '',
-                            text: '{$titleCaseText}',
-                            to: '/lists/{$route['kebab']}',
-                        }
+                {
+                    title: '{$titleCaseText}',
+                    route: '/lists/{$route['kebab']}',
+                }
 EOT;
         }, $routes);
 
@@ -293,18 +292,7 @@ export default {
     computed: {
         links() {
             return [
-                {
-                    icon: '',
-                    text: 'Home',
-                    to: '/',
-                },
-                {
-                    icon: '',
-                    text: 'Lists',
-                    subLinks: [
 $menuLinksString
-                    ],
-                },
             ]
         },
     },
