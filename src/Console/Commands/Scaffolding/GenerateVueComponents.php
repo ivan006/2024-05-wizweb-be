@@ -99,7 +99,7 @@ class GenerateVueComponents extends Command
                 :model="superTableModel"
                 @clickRow="openRecord"
                 :displayMapField="false"
-                :currentParentRel="currentParentRel"
+                :parentKeyValuePair="parentKeyValuePair"
                 :fetchFlags="fetchFlags"
             />
         </q-card>
@@ -117,9 +117,9 @@ export default {
     },
 
     props: {
-        currentParentRel: {
+        parentKeyValuePair: {
             type: Object,
-            default: null
+            default: () => ({})
         },
         fetchFlags: {
             type: Object,
@@ -185,18 +185,19 @@ EOT;
 
     protected function getListControllerComponentContent($modelName, $pluralKebabModel)
     {
+        $modelNameList = Str::camel($modelName) . 'List';
+
         return <<<EOT
 <template>
     <div>
-        <$modelName-list
-            :currentParentRel="currentParentRel"
+        <$modelNameList
+            :parentKeyValuePair="parentKeyValuePair"
             :fetchFlags="fetchFlags"
         />
     </div>
 </template>
 
 <script>
-import $modelName from 'src/models/orm-api/$modelName'
 import $modelNameList from 'src/views/lists/$pluralKebabModel/{$modelName}List.vue'
 
 export default {
@@ -205,14 +206,10 @@ export default {
         $modelNameList,
     },
 
-    props: {
-        currentParentRel: {
-            type: Object,
-            default: null
-        },
-        fetchFlags: {
-            type: Object,
-            default: () => ({})
+    data() {
+        return {
+            parentKeyValuePair: {},
+            fetchFlags: {}
         }
     },
 }
@@ -222,10 +219,12 @@ EOT;
 
     protected function getReadControllerComponentContent($modelName, $pluralKebabModel)
     {
+        $modelNameRead = Str::camel($modelName) . 'Read';
+
         return <<<EOT
 <template>
     <div>
-        <$modelName-read :id="id" />
+        <$modelNameRead :id="id" />
     </div>
 </template>
 
@@ -238,10 +237,9 @@ export default {
         $modelNameRead,
     },
 
-    props: {
-        id: {
-            type: [String, Number],
-            required: true
+    data() {
+        return {
+            id: +this.\$route.params.rId
         }
     },
 }
@@ -409,3 +407,4 @@ EOT;
         $this->info('Generated menu file');
     }
 }
+
