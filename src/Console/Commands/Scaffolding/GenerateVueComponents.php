@@ -92,18 +92,14 @@ class GenerateVueComponents extends Command
     {
         return <<<EOT
 <template>
-    <div>
-        <q-card class="q-pa-md q-mt-md">
-            <SuperTable
-                :showMap="true"
-                :model="superTableModel"
-                @clickRow="openRecord"
-                :displayMapField="false"
-                :parentKeyValuePair="parentKeyValuePair"
-                :fetchFlags="fetchFlags"
-            />
-        </q-card>
-    </div>
+    <SuperTable
+        :showMap="true"
+        :model="superTableModel"
+        @clickRow="openRecord"
+        :displayMapField="false"
+        :parentKeyValuePair="parentKeyValuePair"
+        :fetchFlags="fetchFlags"
+    />
 </template>
 
 <script>
@@ -152,16 +148,12 @@ EOT;
     {
         return <<<EOT
 <template>
-    <div>
-        <q-card class="q-pa-md q-mt-md">
-            <SuperRecord
-                :model="superRecordModel"
-                :id="+\$route.params.rId"
-                :displayMapField="true"
-            >
-            </SuperRecord>
-        </q-card>
-    </div>
+    <SuperRecord
+        :model="superRecordModel"
+        :id="+\$route.params.rId"
+        :displayMapField="true"
+    >
+    </SuperRecord>
 </template>
 
 <script>
@@ -189,11 +181,14 @@ EOT;
 
         return <<<EOT
 <template>
+
     <div>
-        <$modelNameList
-            :parentKeyValuePair="parentKeyValuePair"
-            :fetchFlags="fetchFlags"
-        />
+        <q-card class="q-pa-md q-mt-md">
+            <$modelNameList
+                :parentKeyValuePair="parentKeyValuePair"
+                :fetchFlags="fetchFlags"
+            />
+        </q-card>
     </div>
 </template>
 
@@ -223,8 +218,11 @@ EOT;
 
         return <<<EOT
 <template>
+
     <div>
-        <$modelNameRead :id="id" />
+        <q-card class="q-pa-md q-mt-md">
+            <$modelNameRead :id="id" />
+        </q-card>
     </div>
 </template>
 
