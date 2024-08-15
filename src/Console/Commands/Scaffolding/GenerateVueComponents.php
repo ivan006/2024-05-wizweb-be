@@ -158,16 +158,25 @@ EOT;
     protected function generateRouterFile($routes)
     {
         $routeEntries = array_map(function ($route) {
+            $pluralModel = Str::plural($route['model']);
             return <<<EOT
       {
         path: '/lists/{$route['kebab']}',
         name: '/lists/{$route['kebab']}',
-        component: () => import('@/views/lists/{$route['kebab']}/{$route['model']}List.vue'),
+        component: () => import('src/pages/lists/{$route['kebab']}/{$route['model']}List.vue'),
+        meta: {
+          breadcrumbName: '{$pluralModel}',
+          breadcrumbParentName: '',
+        },
       },
       {
-        path: '/lists/{$route['kebab']}/:rId',
-        name: '/lists/{$route['kebab']}/:rId',
-        component: () => import('@/views/lists/{$route['kebab']}/{$route['model']}Read.vue'),
+        path: '/lists/{$route['kebab']}/:rId/:rName',
+        name: '/lists/{$route['kebab']}/:rId/:rName',
+        component: () => import('src/pages/lists/{$route['kebab']}/{$route['model']}Read.vue'),
+        meta: {
+          breadcrumbName: ':rName',
+          breadcrumbParentName: '/lists/{$route['kebab']}',
+        },
       }
 EOT;
         }, $routes);
@@ -259,8 +268,8 @@ EOT;
 
 <script>
 import VueCookies from 'vue-cookies'
-import MenuSystemItem from '@/views/global/MenuSystemItem.vue'
-import MyProversAndCustomerAsMenuList from '@/views/global/MyProversAndCustomerAsMenuList.vue'
+import MenuSystemItem from 'src/pages/global/MenuSystemItem.vue'
+import MyProversAndCustomerAsMenuList from 'src/pages/global/MyProversAndCustomerAsMenuList.vue'
 import BaselineLayout from "@/layouts/baselineLayout.vue";
 
 export default {
