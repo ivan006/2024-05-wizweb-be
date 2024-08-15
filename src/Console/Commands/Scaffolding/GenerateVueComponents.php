@@ -11,7 +11,7 @@ use QuicklistsOrmApi\Console\Commands\WordSplitter;
 class GenerateVueComponents extends Command
 {
     protected $signature = 'generate:ql-ui-c';
-    protected $description = 'Generate Vue component files for each model and a router file';
+    protected $description = 'Generate Vue component files for each model, including controllers and views, and a router file';
     protected $wordSplitter;
 
     public function __construct()
@@ -24,7 +24,6 @@ class GenerateVueComponents extends Command
     {
         $tables = DB::select('SHOW TABLES');
         $routes = [];
-        $models = [];
 
         foreach ($tables as $table) {
             // Extract the table name dynamically
@@ -41,27 +40,13 @@ class GenerateVueComponents extends Command
             $modelName = Str::singular($pascalTableName);
             $pluralKebabModel = Str::kebab(Str::plural(implode('-', $segmentedTableName)));
 
-            $listComponentContent = $this->getListComponentContent($modelName, $pluralKebabModel);
-            $readComponentContent = $this->getReadComponentContent($modelName, $pluralKebabModel);
-
-            $listPath = base_path("resources/js/views/lists/$pluralKebabModel/{$modelName}List.vue");
-            $readPath = base_path("resources/js/views/lists/$pluralKebabModel/{$modelName}Read.vue");
-
-            File::ensureDirectoryExists(dirname($listPath));
-            File::put($listPath, $listComponentContent);
-
-            File::ensureDirectoryExists(dirname($readPath));
-            File::put($readPath, $readComponentContent);
-
-            $this->info("Generated Vue components for $tableName");
+            // Generate List and Read components for both views and controllers
+            $this->generateListComponents($modelName, $pluralKebabModel);
+            $this->generateReadComponents($modelName, $pluralKebabModel);
 
             $routes[] = [
                 'model' => $modelName,
                 'kebab' => $pluralKebabModel
-            ];
-
-            $models[] = [
-                'modelName' => $modelName
             ];
         }
 
@@ -69,10 +54,41 @@ class GenerateVueComponents extends Command
         $this->generateMenuFile($routes);
     }
 
+    protected function generateListComponents($modelName, $pluralKebabModel)
+    {
+        // Generate List View Component
+        $listViewContent = $this->getListViewComponentContent($modelName, $pluralKebabModel);
+        $listViewPath = base_path("resources/js/views/lists/$pluralKebabModel/{$modelName}List.vue");
+        File::ensureDirectoryExists(dirname($listViewPath));
+        File::put($listViewPath, $listViewContent);
 
+        // Generate List Controller Component
+        $listControllerContent = $this->getListControllerComponentContent($modelName, $pluralKebabModel);
+        $listControllerPath = base_path("resources/js/controllers/lists/$pluralKebabModel/{$modelName}ListController.vue");
+        File::ensureDirectoryExists(dirname($listControllerPath));
+        File::put($listControllerPath, $listControllerContent);
 
+        $this->info("Generated List components (view and controller) for $modelName");
+    }
 
-    protected function getListComponentContent($modelName, $pluralKebabModel)
+    protected function generateReadComponents($modelName, $pluralKebabModel)
+    {
+        // Generate Read View Component
+        $readViewContent = $this->getReadViewComponentContent($modelName, $pluralKebabModel);
+        $readViewPath = base_path("resources/js/views/lists/$pluralKebabModel/{$modelName}Read.vue");
+        File::ensureDirectoryExists(dirname($readViewPath));
+        File::put($readViewPath, $readViewContent);
+
+        // Generate Read Controller Component
+        $readControllerContent = $this->getReadControllerComponentContent($modelName, $pluralKebabModel);
+        $readControllerPath = base_path("resources/js/controllers/lists/$pluralKebabModel/{$modelName}ReadController.vue");
+        File::ensureDirectoryExists(dirname($readControllerPath));
+        File::put($readControllerPath, $readControllerContent);
+
+        $this->info("Generated Read components (view and controller) for $modelName");
+    }
+
+    protected function getListViewComponentContent($modelName, $pluralKebabModel)
     {
         return <<<EOT
 <template>
@@ -83,6 +99,8 @@ class GenerateVueComponents extends Command
                 :model="superTableModel"
                 @clickRow="openRecord"
                 :displayMapField="false"
+                :currentParentRel="currentParentRel"
+                :fetchFlags="fetchFlags"
             />
         </q-card>
     </div>
@@ -91,12 +109,22 @@ class GenerateVueComponents extends Command
 <script>
 import { SuperTable } from 'quicklists-vue-orm-ui'
 import $modelName from 'src/models/orm-api/$modelName'
-import router from 'src/router'
 
 export default {
     name: '$modelName-list',
     components: {
         SuperTable,
+    },
+
+    props: {
+        currentParentRel: {
+            type: Object,
+            default: null
+        },
+        fetchFlags: {
+            type: Object,
+            default: () => ({})
+        }
     },
 
     computed: {
@@ -120,7 +148,7 @@ export default {
 EOT;
     }
 
-    protected function getReadComponentContent($modelName, $pluralKebabModel)
+    protected function getReadViewComponentContent($modelName, $pluralKebabModel)
     {
         return <<<EOT
 <template>
@@ -155,6 +183,72 @@ export default {
 EOT;
     }
 
+    protected function getListControllerComponentContent($modelName, $pluralKebabModel)
+    {
+        return <<<EOT
+<template>
+    <div>
+        <$modelName-list
+            :currentParentRel="currentParentRel"
+            :fetchFlags="fetchFlags"
+        />
+    </div>
+</template>
+
+<script>
+import $modelName from 'src/models/orm-api/$modelName'
+import $modelNameList from 'src/views/lists/$pluralKebabModel/{$modelName}List.vue'
+
+export default {
+    name: '$modelName-list-controller',
+    components: {
+        $modelNameList,
+    },
+
+    props: {
+        currentParentRel: {
+            type: Object,
+            default: null
+        },
+        fetchFlags: {
+            type: Object,
+            default: () => ({})
+        }
+    },
+}
+</script>
+EOT;
+    }
+
+    protected function getReadControllerComponentContent($modelName, $pluralKebabModel)
+    {
+        return <<<EOT
+<template>
+    <div>
+        <$modelName-read :id="id" />
+    </div>
+</template>
+
+<script>
+import $modelNameRead from 'src/views/lists/$pluralKebabModel/{$modelName}Read.vue'
+
+export default {
+    name: '$modelName-read-controller',
+    components: {
+        $modelNameRead,
+    },
+
+    props: {
+        id: {
+            type: [String, Number],
+            required: true
+        }
+    },
+}
+</script>
+EOT;
+    }
+
     protected function generateRouterFile($routes)
     {
         $routeEntries = array_map(function ($route) {
@@ -163,7 +257,7 @@ EOT;
       {
         path: '/lists/{$route['kebab']}',
         name: '/lists/{$route['kebab']}',
-        component: () => import('src/pages/lists/{$route['kebab']}/{$route['model']}List.vue'),
+        component: () => import('src/controllers/lists/{$route['kebab']}/{$route['model']}ListController.vue'),
         meta: {
           breadcrumbName: '{$pluralModel}',
           breadcrumbParentName: '',
@@ -172,7 +266,7 @@ EOT;
       {
         path: '/lists/{$route['kebab']}/:rId/:rName',
         name: '/lists/{$route['kebab']}/:rId/:rName',
-        component: () => import('src/pages/lists/{$route['kebab']}/{$route['model']}Read.vue'),
+        component: () => import('src/controllers/lists/{$route['kebab']}/{$route['model']}ReadController.vue'),
         meta: {
           breadcrumbName: ':rName',
           breadcrumbParentName: '/lists/{$route['kebab']}',
@@ -211,7 +305,6 @@ EOT;
 
         $this->info('Generated router file');
     }
-
 
     protected function generateMenuFile($routes)
     {
@@ -299,7 +392,7 @@ $menuLinksString
     watch: {
         drawer(newVal) {
             this.\$emit('drawer', newVal)
-        },
+        }
     },
     mounted() {
     },
@@ -315,7 +408,4 @@ EOT;
 
         $this->info('Generated menu file');
     }
-
-
-
 }
