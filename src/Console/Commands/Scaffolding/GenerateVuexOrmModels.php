@@ -79,6 +79,7 @@ export default class $modelName extends MyBaseModel {
     static entityUrl = '/api/$pluralTableName';
     static primaryKey = '$primaryKey';
     static titleKey = '$primaryKey';
+    static entityName = '$modelName';
     static openRecord(pVal, item, router){
       router.push({
         name: '/lists/$pluralTableName/:rId/:rName',
