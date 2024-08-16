@@ -62,7 +62,7 @@ class GenerateLaravelModels extends Command
 
                 if (!$isAutoIncrement) {
                     $fillable[] = "'$fieldName'";
-                    $rules[] = "'$fieldName' => '" . ($nullable ? 'nullable' : 'required') . "'";
+                    $rules[] = "'$fieldName' => '" . ($nullable ? 'nullable' : 'sometimes:required') . "'";
                     $attributeNames[] = strtolower($fieldName);
                 } else {
                     $autoIncrement = $fieldName;
