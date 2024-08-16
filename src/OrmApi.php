@@ -87,7 +87,7 @@ class OrmApi
     }
 
 
-    public static function fetchAllWithFullQueryExposure(Model $model, $request, $entityName = 'Item')
+    public static function fetchAllWithFullQueryExposure(Model $model, Request $request, $entityName = 'Item')
     {
         $inferSpatieCodes = self::inferSpatieCodes($model);
 
@@ -97,21 +97,18 @@ class OrmApi
         // Include the primary key in the allowed sorts
         $allFieldsWithPrimary = array_merge($inferSpatieCodes["allFields"], [$primaryKey]);
         $filters = array_map(function ($field) {
-            //return AllowedFilter::exact($field);
             return AllowedFilter::partial($field);
         }, $allFieldsWithPrimary);
-
 
         // Get listable conditions from the model
         $listableConditions = $model->listable();
 
+        // Initialize the query builder
         $result = QueryBuilder::for(get_class($model))
             ->allowedFields($allFieldsWithPrimary)
             ->allowedIncludes($inferSpatieCodes["relations"])
-            //->allowedFilters($allFieldsWithPrimary))
             ->allowedFilters($filters)
-            ->allowedSorts($allFieldsWithPrimary) // Add allowed sorts including primary key
-            //->withCount($request->withCount ? $request->withCount : null)
+            ->allowedSorts($allFieldsWithPrimary)
             ->where($listableConditions); // Apply listable conditions
 
         // Handle search
@@ -120,6 +117,16 @@ class OrmApi
                 $inferSpatieCodes["searchable_fields"],
                 $request->search
             );
+        }
+
+        // Handle whereHas filters
+        $whereHasFilters = $request->input('whereHas', []);
+        foreach ($whereHasFilters as $relation => $conditions) {
+            $result = $result->whereHas($relation, function ($query) use ($conditions) {
+                foreach ($conditions as $field => $value) {
+                    $query->where($field, $value);
+                }
+            });
         }
 
         // Handle pagination
@@ -1001,6 +1008,8 @@ class OrmApi
     }
 
 
+
+
     public static function assignNestedArrayValue($array, $path, $value)
     {
         // Split the path into keys based on square brackets
@@ -1020,7 +1029,11 @@ class OrmApi
     }
 
 
+
+
+
+
+
+
 }
-
-
 
