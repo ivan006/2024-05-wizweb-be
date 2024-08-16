@@ -79,12 +79,12 @@ export default class $modelName extends MyBaseModel {
     static entityUrl = '/api/$pluralTableName';
     static primaryKey = '$primaryKey';
     static titleKey = '$primaryKey';
-    static openRecord(pKey){
+    static openRecord(pVal, item, router){
       router.push({
         name: '/lists/$pluralTableName/:rId/:rName',
         params: {
-          rId: pKey,
-          rName: pKey,
+          rId: pVal,
+          rName: pVal,
         },
       })
     }
@@ -278,7 +278,7 @@ EOT;
             return "import $segmentedModelName from 'src/models/orm-api/$relatedModelFile';";
         }, $relatedModels);
 
-        array_unshift($imports, "import MyBaseModel from 'src/models/helpers/MyBaseModel';", "import router from 'src/router';");
+        array_unshift($imports, "import MyBaseModel from 'src/models/helpers/MyBaseModel';");
         return implode("\n", $imports);
     }
 

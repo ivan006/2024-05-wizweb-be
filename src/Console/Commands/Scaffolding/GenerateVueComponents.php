@@ -129,12 +129,12 @@ export default {
         },
     },
     methods: {
-        openRecord(item) {
-            this.\$router.push({
+        openRecord(pVal, item, router) {
+            router.push({
                 name: '/lists/$pluralKebabModel/:rId/:rName',
                 params: {
-                    rId: item.id,
-                    rName: item.name,
+                    rId: pVal,
+                    rName: pVal,
                 },
             })
         },
@@ -152,6 +152,7 @@ EOT;
         :model="superRecordModel"
         :id="+\$route.params.rId"
         :displayMapField="true"
+        @initialLoadHappened="\$emit('initialLoadHappened')"
     >
     </SuperRecord>
 </template>
@@ -220,7 +221,7 @@ EOT;
 <template>
 
     <div>
-        <q-card class="q-pa-md q-mt-md">
+        <q-card class="q-mb-md">
             <$modelNameRead :id="id" />
         </q-card>
     </div>
