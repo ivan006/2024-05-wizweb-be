@@ -80,7 +80,6 @@ export default class $modelName extends MyBaseModel {
     static primaryKey = '$primaryKey';
     static titleKey = '$primaryKey';
     static entityName = '$modelName';
-    static session = VueCookies.get('VITE_AUTH');
     static openRecord(pVal, item, router){
       router.push({
         name: '/lists/$pluralTableName/:rId/:rName',
@@ -280,7 +279,7 @@ EOT;
             return "import $segmentedModelName from 'src/models/orm-api/$relatedModelFile';";
         }, $relatedModels);
 
-        array_unshift($imports, "import MyBaseModel from 'src/models/helpers/MyBaseModel';", "import VueCookies from 'vue-cookies';");
+        array_unshift($imports, "import MyBaseModel from 'src/models/helpers/MyBaseModel';");
         return implode("\n", $imports);
     }
 
