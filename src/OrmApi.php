@@ -93,6 +93,7 @@ class OrmApi
 
         // Get the primary key of the model
         $primaryKey = $model->getKeyName();
+        $directFields = array_merge($model->getFillable(), [$primaryKey]);
 
         // Include the primary key in the allowed sorts
         $allFieldsWithPrimary = array_merge($inferSpatieCodes["allFields"], [$primaryKey]);
@@ -105,6 +106,7 @@ class OrmApi
 
         // Initialize the query builder
         $result = QueryBuilder::for(get_class($model))
+            ->select($directFields)
             ->allowedFields($allFieldsWithPrimary)
             ->allowedIncludes($inferSpatieCodes["relations"])
             ->allowedFilters($filters)
