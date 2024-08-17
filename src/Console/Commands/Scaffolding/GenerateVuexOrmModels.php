@@ -60,7 +60,7 @@ class GenerateVuexOrmModels extends Command
                 if (in_array($fieldName, array_column($relations['foreignKeys'], 'COLUMN_NAME'))) {
                     $relatedFieldName = $this->generateRelationName($fieldName, array_map(function ($column) { return strtolower($column->Field); }, $columns));
                     $parentWithables[] = "'$relatedFieldName'";
-                    $fieldMeta = "{ relationRules: { linkables: (user) => { return {} } } }";
+                    $fieldMeta = "{ linkablesRule: () => { return {} } }";
                 }
                 $fields[] = "'$fieldName': this.attr('').nullable()";
                 $fieldsMetadata[] = "'$fieldName': $fieldMeta"; // Placeholder for actual metadata logic
@@ -80,6 +80,7 @@ export default class $modelName extends MyBaseModel {
     static primaryKey = '$primaryKey';
     static titleKey = '$primaryKey';
     static entityName = '$modelName';
+    static session = VueCookies.get('VITE_AUTH');
     static openRecord(pVal, item, router){
       router.push({
         name: '/lists/$pluralTableName/:rId/:rName',
@@ -279,7 +280,7 @@ EOT;
             return "import $segmentedModelName from 'src/models/orm-api/$relatedModelFile';";
         }, $relatedModels);
 
-        array_unshift($imports, "import MyBaseModel from 'src/models/helpers/MyBaseModel';");
+        array_unshift($imports, "import MyBaseModel from 'src/models/helpers/MyBaseModel';", "import VueCookies from 'vue-cookies';");
         return implode("\n", $imports);
     }
 
