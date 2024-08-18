@@ -1,6 +1,6 @@
 {
     "name": "ivanc006/quicklists-laravel-orm-api",
-    "version": "1.0.4",
+    "version": "1.0.5",
     "description": "A Laravel ORM API package for QuickLists.",
     "type": "library",
     "require": {
