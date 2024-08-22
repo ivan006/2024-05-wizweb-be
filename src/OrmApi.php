@@ -215,13 +215,20 @@ class OrmApi
                 $file = $request->file($field);
                 if ($file) {
                     // Handle single file upload
-                    $drive = config('filesystems.default', 'public');
+                    $drive = "public";
+                    if (config('app.API_GEN_STORAGE_DRIVE')){
+                        $drive = config('app.API_GEN_STORAGE_DRIVE');
+                    }
                     $filePath = $file->store($subfolder, $drive);
                     if ($drive === 's3'){
                         Storage::disk('s3')->setVisibility($filePath, 'public');
                         $filePath = Storage::disk('s3')->url($filePath);
                     } else {
-                        $filePath = config('app.url')."/storage/".$filePath;
+                        $storage_path = "/storage/";
+                        if (config('app.API_GEN_STORAGE_PATH_OVERRIDE')){
+                            $storage_path = "/".config('app.API_GEN_STORAGE_PATH_OVERRIDE')."/";
+                        }
+                        $filePath = config('app.url') . $storage_path . $filePath;
                     }
                     // Update the field with the file path
                     $record->$field = $filePath;
