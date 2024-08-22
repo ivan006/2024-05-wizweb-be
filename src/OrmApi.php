@@ -215,12 +215,12 @@ class OrmApi
                 $file = $request->file($field);
                 if ($file) {
                     // Handle single file upload
-                    $drive = "public";
-                    if (config('app.API_GEN_STORAGE_DRIVE')){
-                        $drive = config('app.API_GEN_STORAGE_DRIVE');
+                    $disk = "public";
+                    if (config('app.API_GEN_STORAGE_DISK')){
+                        $disk = config('app.API_GEN_STORAGE_DISK');
                     }
-                    $filePath = $file->store($subfolder, $drive);
-                    if ($drive === 's3'){
+                    $filePath = $file->store($subfolder, $disk);
+                    if ($disk === 's3'){
                         Storage::disk('s3')->setVisibility($filePath, 'public');
                         $filePath = Storage::disk('s3')->url($filePath);
                     } else {
@@ -833,7 +833,19 @@ class OrmApi
                 foreach ($extraInfo as $field => $info) {
                     if (isset($info['ontologyType']) && $info['ontologyType'] === 'file') {
                         if ($item->$field) {
-                            Storage::disk('public')->delete($item->$field);
+
+                            $storage_path = "/storage/";
+                            if (config('app.API_GEN_STORAGE_PATH_OVERRIDE')){
+                                $storage_path = "/".config('app.API_GEN_STORAGE_PATH_OVERRIDE')."/";
+                            }
+
+                            $originalString = $item->$field;
+                            $prefixToRemove = config('app.url') . $storage_path;
+
+                            if (substr($originalString, 0, strlen($prefixToRemove)) === $prefixToRemove) {
+                                $originalString = substr($originalString, strlen($prefixToRemove));
+                            }
+                            Storage::disk('public')->delete($originalString);
                         }
                     }
                 }
