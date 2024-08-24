@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Exception;
 use ReflectionMethod;
+use QuicklistsOrmApi\ComparisonFilter;
 
 
 class OrmApi
@@ -97,9 +98,20 @@ class OrmApi
 
         // Include the primary key in the allowed sorts
         $allFieldsWithPrimary = array_merge($inferSpatieCodes["allFields"], [$primaryKey]);
+
         $filters = array_map(function ($field) {
             return AllowedFilter::partial($field);
         }, $allFieldsWithPrimary);
+
+
+        // Add comparison filters
+        $comparisonFilters = [
+            ...ComparisonFilter::setFilters('start_datetime', ['gt', 'ge', 'lt', 'le', 'eq', 'ne']),
+            ...ComparisonFilter::setFilters('end_datetime', ['gt', 'ge', 'lt', 'le']),
+        ];
+
+        // Merge the filters
+        $filters = array_merge($filters, $comparisonFilters);
 
         // Get listable conditions from the model
         $listableConditions = $model->listable();
