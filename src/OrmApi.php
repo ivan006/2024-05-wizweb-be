@@ -121,14 +121,36 @@ class OrmApi
             );
         }
 
-        // Handle whereHas filters
-        $whereHasFilters = $request->input('whereHas', []);
-        foreach ($whereHasFilters as $relation => $conditions) {
-            $result = $result->whereHas($relation, function ($query) use ($conditions) {
-                foreach ($conditions as $field => $value) {
-                    $query->where($field, $value);
+
+
+        // Extract whereFilters from the request
+        $whereFilters = $request->input('whereFilters', []);
+
+        // Iterate over each filter in whereFilters
+        foreach ($whereFilters as $key => $conditions) {
+            if ($key === 'whereHas') {
+                // Handle whereHas filters specifically
+                foreach ($conditions as $relation => $relationConditions) {
+                    $result = $result->whereHas($relation, function ($query) use ($relationConditions) {
+                        foreach ($relationConditions as $field => $value) {
+                            // Use whereIn if value is an array, otherwise use where
+                            if (is_array($value)) {
+                                $query->whereIn($field, $value);
+                            } else {
+                                $query->where($field, $value);
+                            }
+                        }
+                    });
                 }
-            });
+            } else {
+                // Handle base model attributes for where and whereIn
+                // Use whereIn if the value is an array
+                if (is_array($conditions)) {
+                    $result = $result->whereIn($key, $conditions);
+                } else {
+                    $result = $result->where($key, $conditions);
+                }
+            }
         }
 
         // Handle pagination
