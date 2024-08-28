@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Exception;
 use ReflectionMethod;
+use QuicklistsOrmApi\ComparisonFilter;
 
 
 class OrmApi
@@ -97,9 +98,19 @@ class OrmApi
 
         // Include the primary key in the allowed sorts
         $allFieldsWithPrimary = array_merge($inferSpatieCodes["allFields"], [$primaryKey]);
+
+        // Initialize filters with partial matching
         $filters = array_map(function ($field) {
             return AllowedFilter::partial($field);
         }, $allFieldsWithPrimary);
+
+        // Add comparison filters dynamically based on ontology
+        $extraInfo = $model->fieldExtraInfo();
+        foreach ($extraInfo as $field => $info) {
+            if (isset($info['ontologyType']) && $info['ontologyType'] === 'time') {
+                $filters = array_merge($filters, ComparisonFilter::setFilters($field, ['gt', 'ge', 'lt', 'le', 'eq', 'ne']));
+            }
+        }
 
         // Get listable conditions from the model
         $listableConditions = $model->listable();
