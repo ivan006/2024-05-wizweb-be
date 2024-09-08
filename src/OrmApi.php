@@ -236,7 +236,7 @@ class OrmApi
         $extraInfo = $model->fieldExtraInfo();
         $modelName = class_basename($model); // Get the model class name
         $recordId = $record->id;
-        $subfolder = $request->query('subfolder', "${modelName}/${recordId}"); // Default to "${modelName}/${recordId}" if no subfolder is specified
+        $subfolder = $request->query('subfolder', "{$modelName}/{$recordId}"); // Default to "{$modelName}/{$recordId}" if no subfolder is specified
 
         // Ensure the subfolder exists
         if (!Storage::disk('public')->exists($subfolder)) {
