@@ -444,8 +444,6 @@ class OrmApi
                 $inferValidation = self::inferValidation($model);
                 $validationRules = $inferValidation['validationRules'];
 
-
-                //Log::info('2024-13-06--12-53', ['$payload' =>  $data,"request"=>$request,]);
                 $fields = $model->getFillable();
 
                 if (method_exists($model, 'rules')) {
@@ -460,7 +458,7 @@ class OrmApi
 
                 $modelItem = self::afterCreate($model, $modelItem, $request);
 
-                $children = self::recursiveCreateOrAttach($model, $request->all(), $modelItem, $request);
+                $children = self::recursiveUpdateOrAttachManyToManyRels($model, $request->all(), $modelItem, $request);
 
                 $resultData = [
                     ...$modelItem->getAttributes(),
@@ -496,84 +494,11 @@ class OrmApi
     }
 
 
-    public static function recursiveCreateOrAttach($model, $itemData, $createdParent, $request)
-    {
-        $result = [];
-        $relationshipTypes = ['parentRelationships', 'spouseRelationships', 'childRelationships'];
-
-        foreach ($relationshipTypes as $relationshipType) {
-            if (method_exists($model, $relationshipType) && is_array($model->$relationshipType())) {
-                foreach ($model->$relationshipType() as $relationshipName => $config) {
-                    if (isset($itemData[$relationshipName])) {
-                        $relationItems = $itemData[$relationshipName];
-                        //$relationType = self::getRelationType($model, $relationshipName);
-                        $relatedModel = $model->$relationshipName()->getRelated();
-                        $pKey = $relatedModel->getKeyName();
-
-                        foreach ($relationItems as $relationItem) {
-
-                            if ($relationshipType == "spouseRelationships") {
-                                if (isset($relationItem[$pKey]) && $relationItem[$pKey] != 0) {
-                                    $existingItem = $relatedModel->find($relationItem[$pKey]);
-                                    if ($existingItem) {
-                                        // Add check before spouse attach
-                                        self::beforeAttach($config, $existingItem, $createdParent, $request);
-                                        $createdParent->$relationshipName()->attach($relationItem[$pKey]);
-                                        $result[$relationshipName][] = $createdParent->$relationshipName()->find($relationItem[$pKey]);
-                                    }
-                                } else {
-                                    $relationItem = self::beforeCreate($relationItem, $relatedModel, $request);
-                                    $createdChild = $relatedModel->create($relationItem);
-                                    $createdChild = self::afterCreate($relatedModel, $createdChild, $request);
-
-                                    self::beforeAttach($config, $createdChild, $createdParent, $request);
-
-                                    // Add check before spouse create and attach
-                                    $createdParent->$relationshipName()->attach($createdChild->id);
-                                    $createdChild->refresh();
-                                    $children = self::recursiveCreateOrAttach($relatedModel, $relationItem, $createdChild, $request);
-                                    $result[$relationshipName][] = [
-                                        ...$createdChild->getAttributes(),
-                                        ...$children
-                                    ];
-                                }
-                            } elseif ($relationshipType == "childRelationships") {
-                                if (isset($relationItem[$pKey]) && $relationItem[$pKey] != 0) {
-                                    $createdChild = $createdParent->$relationshipName()->find($relationItem[$pKey]);
-                                    $createdChild->update($relationItem);
-                                } else {
-                                    $relationItem = self::beforeCreate($relationItem, $relatedModel, $request);
-                                    $createdChild = $relatedModel->create($relationItem);
-                                    $createdChild = self::afterCreate($relatedModel, $createdChild, $request);
-
-                                    // Add check before child create and attach
-                                    self::beforeAttach($config, $createdChild, $createdParent, $request);
-                                    $createdParent->$relationshipName()->save($createdChild);
-                                    $createdChild->refresh();
-                                }
-                                $children = self::recursiveCreateOrAttach($relatedModel, $relationItem, $createdChild, $request);
-                                $result[$relationshipName][] = [
-                                    ...$createdChild->getAttributes(),
-                                    ...$children
-                                ];
-                            } elseif ($relationshipType == "parentRelationships") {
-                                $parent = $relatedModel->find($relationItem[$pKey]);
-                                // Add check before parent attach
-                                self::beforeAttach($config, $parent, $createdParent, $request);
-                                $createdParent->$relationshipName()->associate($parent);
-                                $createdParent->save();
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        return $result;
-    }
 
 
-    public static function recursiveUpdateOrAttachManyToManyRels($model, $itemData, $updatedParent, $request)
+
+
+    public static function recursiveUpdateOrAttachManyToManyRels($model, $itemData, $parent, $request)
     {
         $result = [];
         $relationshipTypes = ['parentRelationships', 'spouseRelationships', 'childRelationships'];
@@ -585,7 +510,6 @@ class OrmApi
                 foreach ($model->$relationshipType() as $relationshipName => $config) {
                     if (isset($itemData[$relationshipName])) {
                         $relationItems = $itemData[$relationshipName];
-                        //$relationType = self::getRelationType($model, $relationshipName);
                         $relatedModel = $model->$relationshipName()->getRelated();
                         $pKey = $relatedModel->getKeyName();
                         $relatedTable = $relatedModel->getTable();
@@ -595,7 +519,7 @@ class OrmApi
                             $m2mRelConfig = collect($m2mRelConfigs)->firstWhere('rel', $relationshipName);
 
                             // Existing related item IDs
-                            $currentRelatedIds = $updatedParent->$relationshipName()->pluck($pKey)->toArray();
+                            $currentRelatedIds = $parent->$relationshipName()->pluck($pKey)->toArray();
 
                             // New related item IDs
                             $newRelatedIds = array_column($relationItems, $pKey);
@@ -607,40 +531,32 @@ class OrmApi
                             foreach ($detachIds as $detachId) {
                                 $relationItemPayload = $relatedModel->find($detachId);
                                 if ($relationItemPayload) {
-                                    self::beforeDetach($config, $relationItemPayload, $updatedParent, $request);
-                                    $updatedParent->$relationshipName()->detach($detachId);
+                                    self::beforeDetach($config, $relationItemPayload, $parent, $request);
+                                    $parent->$relationshipName()->detach($detachId);
                                 }
                             }
 
                             foreach ($relationItems as $relationItemPayload) {
                                 if (isset($relationItemPayload[$pKey]) && !empty($relationItemPayload[$pKey]) && $relationItemPayload[$pKey] != 0) {
                                     if ($m2mRelConfig && isset($m2mRelConfig['action']) && $m2mRelConfig['action'] === 'detach') {
+                                        self::beforeDetach($config, $relationItemPayload, $parent, $request);
                                         if ($relationshipType == "spouseRelationships") {
-                                            // Add check before spouse detach
-                                            self::beforeDetach($config, $relationItemPayload, $updatedParent, $request);
-                                            // Detach the relation item
-                                            $updatedParent->$relationshipName()->detach($relationItemPayload[$pKey]);
+                                            $parent->$relationshipName()->detach($relationItemPayload[$pKey]);
                                         } elseif ($relationshipType == "childRelationships") {
-                                            // Add check before child detach
-                                            self::beforeDetach($config, $relationItemPayload, $updatedParent, $request);
-                                            // Handle detaching logic for HasMany if needed
-                                            // For HasMany, you might need to delete or disassociate the item
                                             $relatedModel->where($pKey, $relationItemPayload[$pKey])->delete();
                                         }
                                     } else {
                                         $existingItem = $relatedModel->find($relationItemPayload[$pKey]);
-
                                         if ($existingItem) {
                                             $relationItemPayload = self::beforeUpdate($relationItemPayload, $existingItem);
                                             if ($relationshipType == "spouseRelationships") {
                                                 $existingItem->update($relationItemPayload);
-                                                $existingRelation = $updatedParent->$relationshipName()
+                                                $existingRelation = $parent->$relationshipName()
                                                     ->where("{$relatedTable}.{$pKey}", $relationItemPayload[$pKey])
                                                     ->exists();
                                                 if (!$existingRelation) {
-                                                    // Add check before spouse attach
-                                                    self::beforeAttach($config, $existingRelation, $updatedParent, $request);
-                                                    $updatedParent->$relationshipName()->attach($relationItemPayload[$pKey]);
+                                                    self::beforeAttach($config, $existingRelation, $parent, $request);
+                                                    $parent->$relationshipName()->attach($relationItemPayload[$pKey]);
                                                 }
                                             } elseif ($relationshipType == "childRelationships") {
                                                 $existingItem->update($relationItemPayload);
@@ -653,8 +569,7 @@ class OrmApi
                                         }
                                     }
                                 } else {
-                                    if ($m2mRelConfig && isset($m2mRelConfig['action'])) {
-                                        if ($m2mRelConfig['action'] === 'createOrAttachSimilar') {
+                                    if ($m2mRelConfig && isset($m2mRelConfig['action']) && $m2mRelConfig['action'] === 'createOrAttachSimilar') {
                                             $similarItem = false;
                                             if (isset($m2mRelConfig['compareOn'])) {
                                                 $compareOnField = $m2mRelConfig['compareOn'];
@@ -675,20 +590,17 @@ class OrmApi
                                             }
 
                                             if ($similarItem) {
-                                                //$relationItemPayload = self::beforeUpdate($relationItemPayload, $similarItem);
-                                                //$similarItem->update($relationItemPayload);
-
 
                                                 if ($relationshipType == "spouseRelationships") {
-
-                                                    $existingRelation = $updatedParent->$relationshipName()
+                                                    $existingRelation = $parent->$relationshipName()
                                                         ->where("{$relatedTable}.{$pKey}", $similarItem->$pKey)
                                                         ->exists();
 
+
+
                                                     if (!$existingRelation) {
-                                                        // Add check before spouse attach
-                                                        self::beforeAttach($config, $existingRelation, $updatedParent, $request);
-                                                        $updatedParent->$relationshipName()->attach($similarItem->$pKey);
+                                                        self::beforeAttach($config, $existingRelation, $parent, $request);
+                                                        $parent->$relationshipName()->attach($similarItem->$pKey);
                                                     }
                                                 }
 
@@ -703,12 +615,11 @@ class OrmApi
                                                 $createdChild = $relatedModel->create($relationItemPayload);
                                                 $createdChild = self::afterCreate($relatedModel, $createdChild, $request);
 
-                                                // Add check before child or spouse attach
-                                                self::beforeAttach($config, $createdChild, $updatedParent, $request);
+                                                self::beforeAttach($config, $createdChild, $parent, $request);
                                                 if ($relationshipType == "spouseRelationships") {
-                                                    $updatedParent->$relationshipName()->attach($createdChild->id);
+                                                    $parent->$relationshipName()->attach($createdChild->id);
                                                 } elseif ($relationshipType == "childRelationships") {
-                                                    $updatedParent->$relationshipName()->save($createdChild);
+                                                    $parent->$relationshipName()->save($createdChild);
                                                 }
                                                 $createdChild->refresh();
 
@@ -718,19 +629,17 @@ class OrmApi
                                                     ...$children
                                                 ];
                                             }
-                                        }
                                     } else {
                                         $relationItemPayload = self::beforeCreate($relationItemPayload, $relatedModel, $request);
 
                                         $createdChild = $relatedModel->create($relationItemPayload);
                                         $createdChild = self::afterCreate($relatedModel, $createdChild, $request);
 
-                                        // Add check before child or spouse attach
-                                        self::beforeAttach($config, $createdChild, $updatedParent, $request);
+                                        self::beforeAttach($config, $createdChild, $parent, $request);
                                         if ($relationshipType == "spouseRelationships") {
-                                            $updatedParent->$relationshipName()->attach($createdChild->id);
+                                            $parent->$relationshipName()->attach($createdChild->id);
                                         } elseif ($relationshipType == "childRelationships") {
-                                            $updatedParent->$relationshipName()->save($createdChild);
+                                            $parent->$relationshipName()->save($createdChild);
                                         }
                                         $createdChild->refresh();
 
@@ -751,10 +660,9 @@ class OrmApi
                                 if ($existingItem) {
                                     $relationItemPayload = self::beforeUpdate($relationItemPayload, $existingItem);
                                     $existingItem->update($relationItemPayload);
-                                    // Add check before parent attach
-                                    self::beforeAttach($config, $existingItem, $updatedParent, $request);
-                                    $updatedParent->$relationshipName()->associate($existingItem);
-                                    $updatedParent->save();
+                                    self::beforeAttach($config, $existingItem, $parent, $request);
+                                    $parent->$relationshipName()->associate($existingItem);
+                                    $parent->save();
                                     $result[$relationshipName] = $existingItem->getAttributes();
                                 }
                             } else {
@@ -762,10 +670,9 @@ class OrmApi
                                 $createdParent = $relatedModel->create($relationItemPayload);
                                 $createdParent = self::afterCreate($relatedModel, $createdParent, $request);
 
-                                // Add check before parent attach
-                                self::beforeAttach($config, $createdParent, $updatedParent, $request);
-                                $updatedParent->$relationshipName()->associate($createdParent);
-                                $updatedParent->save();
+                                self::beforeAttach($config, $createdParent, $parent, $request);
+                                $parent->$relationshipName()->associate($createdParent);
+                                $parent->save();
                                 $result[$relationshipName] = $createdParent->getAttributes();
                             }
                         }
@@ -776,6 +683,7 @@ class OrmApi
 
         return $result;
     }
+
 
 
     public static function customSync($relation, $relatedIds, $detaching = true)
@@ -922,16 +830,10 @@ class OrmApi
                     $data = $request->all();
                 }
 
-
                 $inferValidation = self::inferValidation($model);
                 $validationRules = $inferValidation['validationRules'];
 
                 foreach ($validationRules as $vKey => $vVal) {
-                    //if ($vVal == "required"){
-                    //    $validationRules[$vKey] = 'sometimes|'.$vVal;
-                    //} else {
-                    //    $validationRules[$vKey] = $vVal;
-                    //}
                     $validationRules[$vKey] = $vVal;
                 }
 
