@@ -437,7 +437,7 @@ class OrmApi
     }
 
 
-    public static function createItemWithOptionalBulkRelations($request, $model, $entityName = 'Item')
+    public static function createItem($request, $model, $entityName = 'Item')
     {
         try {
             DB::transaction(function () use ($request, $model, $entityName, &$resultData, &$modelItem) {
