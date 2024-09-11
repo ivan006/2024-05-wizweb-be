@@ -436,7 +436,6 @@ class OrmApi
         return $result;
     }
 
-
     public static function createItem($request, $model, $entityName = 'Item')
     {
         try {
@@ -452,11 +451,36 @@ class OrmApi
                     $data = $request->all();
                 }
 
-                $data = self::beforeCreate($data, $model, $request);
+                // Upsert functionality
+                $upsertCompareOn = $request->get('upsertCompareOn');
+                $upsertCompareMode = $request->get('upsertCompareMode');
 
-                $modelItem = $model->create(array_intersect_key($data, array_flip($fields)));
+                if ($upsertCompareOn && in_array($upsertCompareOn, $fields)) {
+                    $compareValue = $data[$upsertCompareOn];
 
-                $modelItem = self::afterCreate($model, $modelItem, $request);
+                    // Normalize based on compare mode
+                    if ($upsertCompareMode === 'sluggify') {
+                        $slugifiedValue = Str::slug($compareValue);
+                        $existingItem = $model->whereRaw("REPLACE(REPLACE(LOWER($upsertCompareOn), ' ', '-'), '--', '-') = ?", [$slugifiedValue])->first();
+                    } else {
+                        $existingItem = $model->whereRaw("LOWER(TRIM($upsertCompareOn)) = ?", [strtolower(trim($compareValue))])->first();
+                    }
+
+                    if ($existingItem) {
+                        // If exists, update the item using the updateItem function
+                        return self::updateItem($request, $model, $existingItem->id, $entityName);
+                    } else {
+                        // Create a new item if not found
+                        $data = self::beforeCreate($data, $model, $request);
+                        $modelItem = $model->create(array_intersect_key($data, array_flip($fields)));
+                        $modelItem = self::afterCreate($model, $modelItem, $request);
+                    }
+                } else {
+                    // Regular create operation
+                    $data = self::beforeCreate($data, $model, $request);
+                    $modelItem = $model->create(array_intersect_key($data, array_flip($fields)));
+                    $modelItem = self::afterCreate($model, $modelItem, $request);
+                }
 
                 $children = self::recursiveUpdateOrAttachManyToManyRels($model, $request->all(), $modelItem, $request);
 
