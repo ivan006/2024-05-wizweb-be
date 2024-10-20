@@ -439,7 +439,8 @@ class OrmApi
     public static function createItem($request, $model, $entityName = 'Item')
     {
         try {
-            DB::transaction(function () use ($request, $model, $entityName, &$resultData, &$modelItem) {
+            $createSuccessMsg = $entityName . " created successfully!";
+            DB::transaction(function () use ($request, $model, $entityName, &$resultData, &$modelItem, &$createSuccessMsg) {
                 $inferValidation = self::inferValidation($model);
                 $validationRules = $inferValidation['validationRules'];
 
@@ -468,7 +469,11 @@ class OrmApi
 
                     if ($existingItem) {
                         // If exists, update the item using the updateItem function
-                        return self::updateItem($request, $model, $existingItem->id, $entityName);
+
+                        $updateItem = self::updateItem($request, $model, $existingItem->id, $entityName);
+                        $createSuccessMsg = $updateItem["res"]["message"];
+                        $resultData = $updateItem["res"]["data"];
+                        return;
                     } else {
                         // Create a new item if not found
                         $data = self::beforeCreate($data, $model, $request);
@@ -490,9 +495,10 @@ class OrmApi
                 ];
             });
 
+            Log::info('2024-13-06--12-53', ['$payload' =>  [1234444]]);
             return [
                 "res" => [
-                    'message' => $entityName . " created successfully!",
+                    'message' => $createSuccessMsg,
                     'data' => $resultData,
                 ],
                 "code" => 200,

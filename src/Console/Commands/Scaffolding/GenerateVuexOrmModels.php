@@ -100,6 +100,12 @@ export default class $modelName extends MyBaseModel {
         editable: (item) => true,
         creatable: () => true,
     };
+    
+    
+    static hooks = {
+        createComplete: (response) => {
+        },
+    };
 
     static fieldsMetadata = {
         $fieldsMetadataString
