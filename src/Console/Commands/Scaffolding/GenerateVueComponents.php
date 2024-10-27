@@ -99,6 +99,7 @@ class GenerateVueComponents extends Command
         :displayMapField="false"
         :parentKeyValuePair="parentKeyValuePair"
         :fetchFlags="fetchFlags"
+        :noBorder="noBorder"
     />
 </template>
 
@@ -113,6 +114,12 @@ export default {
     },
 
     props: {
+        noBorder: {
+          type: Boolean,
+          default: () => {
+            return false
+          }
+        },
         parentKeyValuePair: {
             type: Object,
             default: () => ({})
