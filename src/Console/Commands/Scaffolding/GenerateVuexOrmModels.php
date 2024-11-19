@@ -56,15 +56,25 @@ class GenerateVuexOrmModels extends Command
 
             foreach ($columns as $column) {
                 $fieldName = $column->Field;
+                $isNullable = strtolower($column->Null) === 'yes';
                 $fieldMeta = "{}";
+
                 if (in_array($fieldName, array_column($relations['foreignKeys'], 'COLUMN_NAME'))) {
-                    $relatedFieldName = $this->generateRelationName($fieldName, array_map(function ($column) { return strtolower($column->Field); }, $columns));
+                    $relatedFieldName = $this->generateRelationName($fieldName, array_map(function ($column) {
+                        return strtolower($column->Field);
+                    }, $columns));
                     $parentWithables[] = "'$relatedFieldName'";
                     $fieldMeta = "{ linkablesRule: () => { return {} } }";
                 }
-                $fields[] = "'$fieldName': this.attr('').nullable()";
+
+                // Include nullable() only if the column is nullable
+                $fields[] = $isNullable
+                    ? "'$fieldName': this.attr('').nullable()"
+                    : "'$fieldName': this.attr('')";
+
                 $fieldsMetadata[] = "'$fieldName': $fieldMeta"; // Placeholder for actual metadata logic
             }
+
 
             $fieldsString = implode(",\n            ", $fields);
             $fieldsMetadataString = implode(",\n            ", $fieldsMetadata);

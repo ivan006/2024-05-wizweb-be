@@ -191,12 +191,10 @@ EOT;
 <template>
 
     <div>
-        <q-card class="">
-            <$modelNameList
-                :parentKeyValuePair="parentKeyValuePair"
-                :fetchFlags="fetchFlags"
-            />
-        </q-card>
+        <$modelNameList
+            :parentKeyValuePair="parentKeyValuePair"
+            :fetchFlags="fetchFlags"
+        />
     </div>
 </template>
 
