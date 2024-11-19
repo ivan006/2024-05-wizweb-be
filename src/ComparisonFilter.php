@@ -1,5 +1,5 @@
 <?php
-namespace QuicklistsOrmApi;
+namespace WizwebBe;
 
 use Spatie\QueryBuilder\AllowedFilter;
 use Spatie\QueryBuilder\Filters\Filter;

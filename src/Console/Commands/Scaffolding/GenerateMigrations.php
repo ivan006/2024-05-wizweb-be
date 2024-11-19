@@ -1,6 +1,6 @@
 <?php
 
-namespace QuicklistsOrmApi\Console\Commands\Scaffolding;
+namespace WizwebBe\Console\Commands\Scaffolding;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;

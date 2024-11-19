@@ -1,12 +1,12 @@
 <?php
 
-namespace QuicklistsOrmApi\Console\Commands\Scaffolding;
+namespace WizwebBe\Console\Commands\Scaffolding;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
-use QuicklistsOrmApi\Console\Commands\WordSplitter;
+use WizwebBe\Console\Commands\WordSplitter;
 
 class GenerateVueComponents extends Command
 {
@@ -104,7 +104,7 @@ class GenerateVueComponents extends Command
 </template>
 
 <script>
-import { SuperTable } from 'quicklists-vue-orm-ui'
+import { SuperTable } from 'wizweb-fe'
 import $modelName from 'src/models/orm-api/$modelName'
 
 export default {
@@ -165,7 +165,7 @@ EOT;
 </template>
 
 <script>
-import { SuperRecord } from 'quicklists-vue-orm-ui'
+import { SuperRecord } from 'wizweb-fe'
 import $modelName from 'src/models/orm-api/$modelName'
 
 export default {

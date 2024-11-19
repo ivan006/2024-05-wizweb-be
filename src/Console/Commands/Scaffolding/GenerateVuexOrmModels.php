@@ -1,13 +1,13 @@
 <?php
 
-namespace QuicklistsOrmApi\Console\Commands\Scaffolding;
+namespace WizwebBe\Console\Commands\Scaffolding;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
-use QuicklistsOrmApi\Console\Commands\WordSplitter;
-use QuicklistsOrmApi\Console\Commands\ModelRelationHelper;
+use WizwebBe\Console\Commands\WordSplitter;
+use WizwebBe\Console\Commands\ModelRelationHelper;
 
 class GenerateVuexOrmModels extends Command
 {
@@ -311,7 +311,7 @@ import VuexORM from '@vuex-orm/core';
 import VuexORMAxios from '@vuex-orm/plugin-axios';
 import axios from 'axios';
 
-import { DBCrudCacheSet } from 'quicklists-vue-orm-ui';
+import { DBCrudCacheSet } from 'wizweb-fe';
 
 $importsString
 

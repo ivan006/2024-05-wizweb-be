@@ -1,12 +1,12 @@
 <?php
 
-namespace QuicklistsOrmApi\Console\Commands\Scaffolding;
+namespace WizwebBe\Console\Commands\Scaffolding;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
-use QuicklistsOrmApi\Console\Commands\WordSplitter;
+use WizwebBe\Console\Commands\WordSplitter;
 
 class GenerateApiControllersAndRoutes extends Command
 {
@@ -81,7 +81,7 @@ class GenerateApiControllersAndRoutes extends Command
 
 namespace App\Http\Controllers\Api;
 
-use QuicklistsOrmApi\OrmApi;
+use WizwebBe\OrmApi;
 use App\Http\Controllers\Controller;
 use App\Models\\$modelName;
 use Illuminate\Http\Request;

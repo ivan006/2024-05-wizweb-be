@@ -1,14 +1,14 @@
 <?php
 
-namespace QuicklistsOrmApi\Console\Commands\Scaffolding;
+namespace WizwebBe\Console\Commands\Scaffolding;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
-use QuicklistsOrmApi\Console\Commands\WordSplitter;
-use QuicklistsOrmApi\Console\Commands\ModelRelationHelper;
+use WizwebBe\Console\Commands\WordSplitter;
+use WizwebBe\Console\Commands\ModelRelationHelper;
 
 class GenerateLaravelModels extends Command
 {
@@ -141,7 +141,7 @@ class GenerateLaravelModels extends Command
 
 namespace App\Models;
 
-use QuicklistsOrmApi\OrmApiBaseModel;
+use WizwebBe\OrmApiBaseModel;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;

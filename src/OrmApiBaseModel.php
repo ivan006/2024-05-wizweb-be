@@ -1,5 +1,5 @@
 <?php
-namespace QuicklistsOrmApi;
+namespace WizwebBe;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;

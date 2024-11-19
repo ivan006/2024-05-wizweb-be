@@ -9,13 +9,13 @@
     },
     "autoload": {
         "psr-4": {
-            "QuicklistsOrmApi\\": "src/"
+            "WizwebBe\\": "src/"
         }
     },
     "extra": {
         "laravel": {
             "providers": [
-                "QuicklistsOrmApi\\OrmApiProvider"
+                "WizwebBe\\OrmApiProvider"
             ]
         }
     },

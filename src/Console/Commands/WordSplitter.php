@@ -1,6 +1,6 @@
 <?php
 
-namespace QuicklistsOrmApi\Console\Commands;
+namespace WizwebBe\Console\Commands;
 
 use Illuminate\Support\Facades\Storage;
 

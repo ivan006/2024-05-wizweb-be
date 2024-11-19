@@ -1,6 +1,6 @@
 <?php
 
-namespace QuicklistsOrmApi;
+namespace WizwebBe;
 
 use Illuminate\Support\ServiceProvider;
 
@@ -16,11 +16,11 @@ class OrmApiProvider extends ServiceProvider
         if ($this->app->runningInConsole()) {
             // Register commands in the Scaffolding directory
             $this->commands([
-                \QuicklistsOrmApi\Console\Commands\Scaffolding\GenerateApiControllersAndRoutes::class,
-                \QuicklistsOrmApi\Console\Commands\Scaffolding\GenerateLaravelModels::class,
-                \QuicklistsOrmApi\Console\Commands\Scaffolding\GenerateMigrations::class,
-                \QuicklistsOrmApi\Console\Commands\Scaffolding\GenerateVueComponents::class,
-                \QuicklistsOrmApi\Console\Commands\Scaffolding\GenerateVuexOrmModels::class,
+                \WizwebBe\Console\Commands\Scaffolding\GenerateApiControllersAndRoutes::class,
+                \WizwebBe\Console\Commands\Scaffolding\GenerateLaravelModels::class,
+                \WizwebBe\Console\Commands\Scaffolding\GenerateMigrations::class,
+                \WizwebBe\Console\Commands\Scaffolding\GenerateVueComponents::class,
+                \WizwebBe\Console\Commands\Scaffolding\GenerateVuexOrmModels::class,
             ]);
         }
     }

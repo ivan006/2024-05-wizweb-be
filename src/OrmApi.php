@@ -1,6 +1,6 @@
 <?php
 //HighLevelEloquentAbstractor
-namespace QuicklistsOrmApi;
+namespace WizwebBe;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Exception;
 use ReflectionMethod;
-use QuicklistsOrmApi\ComparisonFilter;
+use WizwebBe\ComparisonFilter;
 
 
 class OrmApi
