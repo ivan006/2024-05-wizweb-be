@@ -43,20 +43,11 @@ class GenerateLaravelModels extends Command
 
             $fillable = [];
             $rules = [];
-            $parentRelationships = [];
-            $spouseRelationships = [];
-            $childRelationships = [];
-            $belongsToMethods = [];
-            $hasManyMethods = [];
-            $belongsToManyMethods = [];
-            $relations = $this->relationHelper->getModelRelations($tableName, $columns);
-
             $attributeNames = [];
-
             $autoIncrement = "";
 
             foreach ($columns as $column) {
-                $fieldName = $column->Field;
+                $fieldName = $this->relationHelper->splitName($column->Field); // Word-split field names
                 $nullable = $column->Null === 'YES';
                 $isAutoIncrement = strpos($column->Extra, 'auto_increment') !== false;
 
@@ -67,64 +58,34 @@ class GenerateLaravelModels extends Command
                 } else {
                     $autoIncrement = $fieldName;
                 }
-
-                //Log::info("Processing table: {$tableName}");
-                //Log::info("Column: {$fieldName}");
-
-                // Log the detected foreign keys for this table
-                //Log::info("Detected foreign keys: ", $relations['foreignKeys']);
-
-                // Check if this column is recognized as a foreign key
-                if (in_array($fieldName, array_column($relations['foreignKeys'], 'COLUMN_NAME'))) {
-                    $relationshipName = Str::camel(Str::singular(preg_replace('/(_?id)$/i', '', $fieldName)));
-                    if (in_array(strtolower($relationshipName), $attributeNames)) {
-                        $relationshipName .= 'Rel';
-                    }
-                    //Log::info("Column {$fieldName} is recognized as a foreign key.");
-
-                    $relationshipName = Str::snake($relationshipName);
-                    //$relationshipName = Str::camel(Str::singular(preg_replace('/(_?id)$/i', '', $fieldName)));
-                    //Log::info("Generated relationship name: {$relationshipName}");
-
-                    // Additional logic processing...
-
-                    $relatedModel = $this->relationHelper->getRelatedModelName($fieldName, $relations['foreignKeys']);
-                    $parentRelationships[] = "'$relationshipName' => []";
-                    $belongsToMethods[] = $this->generateBelongsToMethod($relatedModel, $relationshipName, $fieldName);
-                } else {
-                    //Log::info("Column {$fieldName} is NOT recognized as a foreign key.");
-                }
             }
 
-            $hasManyRelationsGrouped = $this->relationHelper->groupHasManyRelations($relations['hasMany']);
-            foreach ($hasManyRelationsGrouped as $relationGroup) {
-                foreach ($relationGroup as $relation) {
-                    $relationshipName = Str::camel(Str::plural($relation['model']));
-                    if (count($relationGroup) > 1) {
-                        $relationshipName .= Str::studly($relation['COLUMN_NAME']);
-                    }
-                    if (in_array(strtolower($relationshipName), $attributeNames)) {
-                        $relationshipName .= 'Rel';
-                    }
+            $allRelations = $this->relationHelper->getAllRelationships($tableName, $columns);
 
-                    $relationshipName = Str::snake($relationshipName);
+            $parentRelationships = [];
+            $childRelationships = [];
+            $spouseRelationships = [];
+            $belongsToMethods = [];
+            $hasManyMethods = [];
+            $belongsToManyMethods = [];
 
-                    $childRelationships[] = "'$relationshipName' => []";
-                    $hasManyMethods[] = $this->generateHasManyMethod($relation['model'], $relationshipName, $relation['COLUMN_NAME']);
+            foreach ($allRelations as $relation) {
+                if ($relation['type'] === 'belongsTo') {
+                    $parentRelationships[] = "'{$relation['name']}' => []";
+                    $belongsToMethods[] = $this->generateBelongsToMethod($relation['model'], $relation['name'], $relation['foreignKey']);
+                } elseif ($relation['type'] === 'hasMany') {
+                    $childRelationships[] = "'{$relation['name']}' => []";
+                    $hasManyMethods[] = $this->generateHasManyMethod($relation['model'], $relation['name'], $relation['foreignKey']);
+                } elseif ($relation['type'] === 'belongsToMany') {
+                    $spouseRelationships[] = "'{$relation['name']}' => []";
+                    $belongsToManyMethods[] = $this->generateBelongsToManyMethod(
+                        $relation['model'],
+                        $relation['name'],
+                        $relation['pivotTable'],
+                        $relation['foreignPivotKey'],
+                        $relation['relatedPivotKey']
+                    );
                 }
-            }
-
-            $belongsToManyRelations = $this->relationHelper->getBelongsToManyRelations($tableName, $columns);
-            foreach ($belongsToManyRelations as $relation) {
-                $relationshipName = Str::camel(Str::plural($relation['model']));
-                if (in_array(strtolower($relationshipName), $attributeNames)) {
-                    $relationshipName .= 'Rel';
-                }
-
-                $relationshipName = Str::snake($relationshipName);
-
-                $spouseRelationships[] = "'$relationshipName' => []";
-                $belongsToManyMethods[] = $this->generateBelongsToManyMethod($relation['model'], $relationshipName, $relation['pivotTable'], $relation['foreignPivotKey'], $relation['relatedPivotKey']);
             }
 
             $fillableString = implode(",\n        ", $fillable);
@@ -200,6 +161,9 @@ EOT;
             $this->info("Generated Laravel model for $tableName");
         }
     }
+
+
+
 
     protected function generateBelongsToMethod($relatedModel, $relationshipName, $fieldName)
     {

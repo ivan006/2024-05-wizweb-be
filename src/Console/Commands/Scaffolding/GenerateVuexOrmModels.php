@@ -26,11 +26,9 @@ class GenerateVuexOrmModels extends Command
     public function handle()
     {
         $tables = DB::select('SHOW TABLES');
-        $routes = [];
         $models = [];
 
         foreach ($tables as $table) {
-            // Extract the table name dynamically
             $tableArray = get_object_vars($table);
             $tableName = reset($tableArray);
             $cleanedTableName = preg_replace('/[^a-zA-Z]/', '', $tableName);
@@ -39,8 +37,8 @@ class GenerateVuexOrmModels extends Command
             $segmentationResult = $this->wordSplitter->split($cleanedTableName);
             $segmentedTableName = $segmentationResult['words'];
             $this->info("Segmented table name: " . implode(' ', $segmentedTableName));
-
             $pascalTableName = implode('', array_map('ucfirst', $segmentedTableName));
+
             $modelName = Str::singular($pascalTableName);
             $jsModelName = Str::camel(Str::singular($cleanedTableName));
             $pluralTableName = Str::plural(Str::kebab(implode('-', $segmentedTableName)));
@@ -50,39 +48,47 @@ class GenerateVuexOrmModels extends Command
 
             $fields = [];
             $fieldsMetadata = [];
-            $relations = $this->relationHelper->getModelRelations($tableName, $columns);
-            $imports = $this->generateImports($modelName, $relations['foreignKeys'], $relations['hasMany']);
             $parentWithables = [];
+            $allRelations = $this->relationHelper->getAllRelationships($tableName, $columns);
 
             foreach ($columns as $column) {
-                $fieldName = $column->Field;
+                $fieldName = $this->relationHelper->splitName($column->Field);
                 $isNullable = strtolower($column->Null) === 'yes';
-                $fieldMeta = "{}";
 
-                if (in_array($fieldName, array_column($relations['foreignKeys'], 'COLUMN_NAME'))) {
-                    $relatedFieldName = $this->generateRelationName($fieldName, array_map(function ($column) {
-                        return strtolower($column->Field);
-                    }, $columns));
-                    $parentWithables[] = "'$relatedFieldName'";
-                    $fieldMeta = "{ linkablesRule: () => { return {} } }";
-                }
+                $defaultMeta = in_array($fieldName, array_column($allRelations, 'foreignKey')) ?
+                    "{ linkablesRule: () => { return {} } }" : "{}";
 
-                // Include nullable() only if the column is nullable
                 $fields[] = $isNullable
                     ? "'$fieldName': this.attr('').nullable()"
                     : "'$fieldName': this.attr('')";
-
-                $fieldsMetadata[] = "'$fieldName': $fieldMeta"; // Placeholder for actual metadata logic
+                $fieldsMetadata[] = "'$fieldName': $defaultMeta";
             }
 
+            $relations = [];
+            $imports = [];
+            foreach ($allRelations as $relation) {
+                if ($relation['type'] === 'belongsTo') {
+                    $relations[] = "'{$relation['name']}': this.belongsTo({$relation['model']}, '{$relation['foreignKey']}')";
+                    $parentWithables[] = "'{$relation['name']}'";
+                    $imports[] = "import {$relation['model']} from 'src/models/{$relation['model']}';";
+                } elseif ($relation['type'] === 'hasMany') {
+                    $relations[] = "'{$relation['name']}': this.hasMany({$relation['model']}, '{$relation['foreignKey']}')";
+                    $imports[] = "import {$relation['model']} from 'src/models/{$relation['model']}';";
+                } elseif ($relation['type'] === 'belongsToMany') {
+                    $relations[] = "'{$relation['name']}': this.belongsToMany({$relation['model']}, '{$relation['pivotTable']}', '{$relation['foreignPivotKey']}', '{$relation['relatedPivotKey']}')";
+                    $imports[] = "import {$relation['model']} from 'src/models/{$relation['model']}';";
+                }
+            }
 
             $fieldsString = implode(",\n            ", $fields);
             $fieldsMetadataString = implode(",\n            ", $fieldsMetadata);
-            $relationsString = $this->generateRelationsString($relations['foreignKeys'], $relations['hasMany'], $columns);
+            $relationsString = implode(",\n            ", $relations);
             $parentWithablesString = implode(",\n        ", $parentWithables);
+            $importsString = implode("\n", $imports);
 
             $jsModel = <<<EOT
-$imports
+$importsString
+import MyBaseModel from 'src/models/helpers/MyBaseModel';
 
 export default class $modelName extends MyBaseModel {
     static entity = '$jsModelName';
@@ -196,6 +202,9 @@ EOT;
 
         $this->generateStoreFile($models);
     }
+
+
+
 
     protected function getPrimaryKey($columns)
     {
