@@ -51,6 +51,7 @@ class GenerateVuexOrmModels extends Command
             $parentWithables = [];
             $allRelations = $this->relationHelper->getAllRelationships($tableName, $columns);
 
+            // Process fields and metadata
             foreach ($columns as $column) {
                 $fieldName = $this->relationHelper->splitName($column->Field);
                 $isNullable = strtolower($column->Null) === 'yes';
@@ -64,21 +65,25 @@ class GenerateVuexOrmModels extends Command
                 $fieldsMetadata[] = "'$fieldName': $defaultMeta";
             }
 
+            // Process relationships and imports
             $relations = [];
             $imports = [];
             foreach ($allRelations as $relation) {
+                $relationName = $relation['name'];
+
                 if ($relation['type'] === 'belongsTo') {
-                    $relations[] = "'{$relation['name']}': this.belongsTo({$relation['model']}, '{$relation['foreignKey']}')";
-                    $parentWithables[] = "'{$relation['name']}'";
+                    $relations[] = "'$relationName': this.belongsTo({$relation['model']}, '{$relation['foreignKey']}')";
+                    $parentWithables[] = "'$relationName'";
                     $imports[] = "import {$relation['model']} from 'src/models/{$relation['model']}';";
                 } elseif ($relation['type'] === 'hasMany') {
-                    $relations[] = "'{$relation['name']}': this.hasMany({$relation['model']}, '{$relation['foreignKey']}')";
+                    $relations[] = "'$relationName': this.hasMany({$relation['model']}, '{$relation['foreignKey']}')";
                     $imports[] = "import {$relation['model']} from 'src/models/{$relation['model']}';";
                 } elseif ($relation['type'] === 'belongsToMany') {
-                    $relations[] = "'{$relation['name']}': this.belongsToMany({$relation['model']}, '{$relation['pivotTable']}', '{$relation['foreignPivotKey']}', '{$relation['relatedPivotKey']}')";
+                    $relations[] = "'$relationName': this.belongsToMany({$relation['model']}, '{$relation['pivotTable']}', '{$relation['foreignPivotKey']}', '{$relation['relatedPivotKey']}')";
                     $imports[] = "import {$relation['model']} from 'src/models/{$relation['model']}';";
                 }
             }
+
 
             $fieldsString = implode(",\n            ", $fields);
             $fieldsMetadataString = implode(",\n            ", $fieldsMetadata);
@@ -86,6 +91,7 @@ class GenerateVuexOrmModels extends Command
             $parentWithablesString = implode(",\n        ", $parentWithables);
             $importsString = implode("\n", $imports);
 
+            // Generate model file
             $jsModel = <<<EOT
 $importsString
 import MyBaseModel from 'src/models/helpers/MyBaseModel';
@@ -202,6 +208,7 @@ EOT;
 
         $this->generateStoreFile($models);
     }
+
 
 
 
