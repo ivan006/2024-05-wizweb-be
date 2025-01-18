@@ -117,10 +117,10 @@ class ModelRelationHelper
         return $relations;
     }
 
-    public function generateRelationName($fieldName, $existingFields)
+    public function generateRelationName($fieldName, $existingFields, $isPlural = false)
     {
         $relationName = preg_replace('/(_ID|_Id|_id|id|ID|Id)$/', '', $this->splitName($fieldName));
-        $relationName = Str::camel(Str::singular($relationName));
+        $relationName = $isPlural ? Str::plural(Str::camel($relationName)) : Str::camel(Str::singular($relationName));
 
         if (in_array(strtolower($relationName), $existingFields)) {
             $relationName .= 'Rel';
@@ -128,6 +128,7 @@ class ModelRelationHelper
 
         return Str::snake($relationName);
     }
+
 
 
     public function resolveConflicts($relationName, $existingFields)
@@ -178,15 +179,18 @@ class ModelRelationHelper
         }
 
         foreach ($relations['hasMany'] as $relation) {
-            $relationName = $this->generateRelationName($relation['name'], array_column($columns, 'Field'));
+            $relationName = $this->generateRelationName($relation['name'], array_column($columns, 'Field'), true); // Ensure plural
             $allRelations[] = $this->generateHasMany($relation['RELATED_MODEL'], $relationName, $relation['COLUMN_NAME']);
         }
+
 
         foreach ($this->getBelongsToManyRelations($tableName, $columns) as $relation) {
             $relationName = $this->generateRelationName(Str::plural($relation['model']), array_column($columns, 'Field'));
             $allRelations[] = $this->generateBelongsToMany($relation['model'], $relationName, $relation['pivotTable'], $relation['foreignPivotKey'], $relation['relatedPivotKey']);
         }
 
+        // Preserve insertion order (no sorting or reordering)
         return $allRelations;
     }
+
 }
