@@ -20,6 +20,10 @@ class ModelRelationHelper
     {
         $databaseName = config('database.connections.mysql.database');
 
+        // Fetch columns in their natural order
+        $columns = DB::select("SHOW COLUMNS FROM $tableName");
+
+        // Fetch foreign keys
         $foreignKeys = DB::select("SELECT
             COLUMN_NAME,
             REFERENCED_TABLE_NAME,
@@ -28,6 +32,22 @@ class ModelRelationHelper
             FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE
             WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND REFERENCED_COLUMN_NAME IS NOT NULL", [$databaseName, $tableName]);
 
+        // Match foreign keys to the natural column order
+        $orderedForeignKeys = [];
+        foreach ($columns as $column) {
+            foreach ($foreignKeys as $foreignKey) {
+                if ($column->Field === $foreignKey->COLUMN_NAME) {
+                    $orderedForeignKeys[] = [
+                        'COLUMN_NAME' => $foreignKey->COLUMN_NAME,
+                        'REFERENCED_TABLE_NAME' => $foreignKey->REFERENCED_TABLE_NAME,
+                        'REFERENCED_COLUMN_NAME' => $foreignKey->REFERENCED_COLUMN_NAME,
+                        'RELATED_MODEL' => Str::studly(Str::singular($foreignKey->REFERENCED_TABLE_NAME)),
+                    ];
+                }
+            }
+        }
+
+        // Fetch hasMany relationships (unchanged)
         $hasManyRelations = DB::select("SELECT
             TABLE_NAME,
             COLUMN_NAME,
@@ -36,30 +56,20 @@ class ModelRelationHelper
             FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE
             WHERE TABLE_SCHEMA = ? AND REFERENCED_TABLE_NAME = ?", [$databaseName, $tableName]);
 
-        $foreignKeysArray = [];
         $hasManyArray = [];
-
-        foreach ($foreignKeys as $foreignKey) {
-            $foreignKeysArray[] = [
-                'COLUMN_NAME' => $foreignKey->COLUMN_NAME,
-                'REFERENCED_TABLE_NAME' => $foreignKey->REFERENCED_TABLE_NAME,
-                'REFERENCED_COLUMN_NAME' => $foreignKey->REFERENCED_COLUMN_NAME,
-                'RELATED_MODEL' => Str::studly(Str::singular($foreignKey->REFERENCED_TABLE_NAME))
-            ];
-        }
-
         foreach ($hasManyRelations as $relation) {
             $hasManyArray[] = [
                 'model' => Str::studly(Str::singular($relation->TABLE_NAME)),
                 'name' => Str::camel(Str::plural($relation->TABLE_NAME)),
                 'COLUMN_NAME' => $relation->COLUMN_NAME,
                 'KEY_COLUMN_NAME' => $relation->REFERENCED_COLUMN_NAME,
-                'RELATED_MODEL' => Str::studly(Str::singular($relation->TABLE_NAME))
+                'RELATED_MODEL' => Str::studly(Str::singular($relation->TABLE_NAME)),
             ];
         }
 
-        return ['foreignKeys' => $foreignKeysArray, 'hasMany' => $hasManyArray];
+        return ['foreignKeys' => $orderedForeignKeys, 'hasMany' => $hasManyArray];
     }
+
 
     public function getRelatedModelName($fieldName, $foreignKeys)
     {
