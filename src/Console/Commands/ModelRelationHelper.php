@@ -127,17 +127,25 @@ class ModelRelationHelper
         return $relations;
     }
 
-    public function generateRelationName($fieldName, $existingFields, $isPlural = false)
+    public function generateRelationName($fieldName, $existingFields, $isPlural = false, $suffix = null)
     {
+        // Split and clean up the field name
         $relationName = preg_replace('/(_ID|_Id|_id|id|ID|Id)$/', '', $this->splitName($fieldName));
         $relationName = $isPlural ? Str::plural(Str::camel($relationName)) : Str::camel(Str::singular($relationName));
 
+        // Append suffix if provided
+        if ($suffix) {
+            $relationName .= ucfirst($this->splitName($suffix));
+        }
+
+        // Ensure uniqueness against existing fields
         if (in_array(strtolower($relationName), $existingFields)) {
             $relationName .= 'Rel';
         }
 
         return Str::snake($relationName);
     }
+
 
 
 
@@ -189,18 +197,22 @@ class ModelRelationHelper
         }
 
         foreach ($relations['hasMany'] as $relation) {
-            $relationName = $this->generateRelationName($relation['name'], array_column($columns, 'Field'), true); // Ensure plural
+            $relationName = $this->generateRelationName(
+                $relation['name'],
+                array_column($columns, 'Field'),
+                true, // Ensure plural
+                $relation['COLUMN_NAME'] // Use the foreign key column name for uniqueness
+            );
             $allRelations[] = $this->generateHasMany($relation['RELATED_MODEL'], $relationName, $relation['COLUMN_NAME']);
         }
-
 
         foreach ($this->getBelongsToManyRelations($tableName, $columns) as $relation) {
             $relationName = $this->generateRelationName(Str::plural($relation['model']), array_column($columns, 'Field'));
             $allRelations[] = $this->generateBelongsToMany($relation['model'], $relationName, $relation['pivotTable'], $relation['foreignPivotKey'], $relation['relatedPivotKey']);
         }
 
-        // Preserve insertion order (no sorting or reordering)
         return $allRelations;
     }
+
 
 }
