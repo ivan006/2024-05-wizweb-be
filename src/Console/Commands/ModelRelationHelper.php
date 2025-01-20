@@ -129,15 +129,16 @@ class ModelRelationHelper
         return $relations;
     }
 
-    public function generateRelationName($fieldName, $existingFields, $isPlural = false, $suffix = null)
+    public function generateRelationName($fieldName, $existingFields, $isPlural = false, $conflictResolutionKey = null)
     {
         // Split and clean up the field name
         $relationName = preg_replace('/(_ID|_Id|_id|id|ID|Id)$/', '', $this->splitName($fieldName));
         $relationName = $isPlural ? Str::plural(Str::camel($relationName)) : Str::camel(Str::singular($relationName));
 
-        // Append suffix if provided (only in case of conflicts)
-        if ($suffix) {
-            $relationName .= ucfirst($this->splitName($suffix));
+        // Handle conflict resolution: Add "where_<foreign_key>" only if a conflict exists
+        if ($conflictResolutionKey) {
+            $conflictKeyCleaned = preg_replace('/(_ID|_Id|_id|id|ID|Id)$/', '', $this->splitName($conflictResolutionKey));
+            $relationName .= '_where_' . Str::snake($conflictKeyCleaned);
         }
 
         // Ensure uniqueness against existing fields
@@ -147,6 +148,8 @@ class ModelRelationHelper
 
         return Str::snake($relationName);
     }
+
+
 
 
 
@@ -196,6 +199,7 @@ class ModelRelationHelper
         $allRelations = [];
         $groupedHasMany = $this->groupHasManyRelations($relations['hasMany']);
 
+        // Process belongsTo relationships
         foreach ($relations['foreignKeys'] as $foreignKey) {
             $allRelations[] = [
                 'type' => 'belongsTo',
@@ -205,15 +209,15 @@ class ModelRelationHelper
             ];
         }
 
+        // Process hasMany relationships
         foreach ($groupedHasMany as $childModel => $relations) {
             foreach ($relations as $relation) {
-                // Check if there are multiple relationships for the same child model
-                $useForeignKeySuffix = count($relations) > 1;
+                $useConflictResolution = count($relations) > 1; // Only apply custom naming if conflict exists
                 $relationName = $this->generateRelationName(
                     $relation['name'],
                     array_column($columns, 'Field'),
                     true,
-                    $useForeignKeySuffix ? $relation['COLUMN_NAME'] : null // Append foreign key only if conflict
+                    $useConflictResolution ? $relation['COLUMN_NAME'] : null
                 );
 
                 $allRelations[] = [
@@ -225,6 +229,8 @@ class ModelRelationHelper
             }
         }
 
+
+        // Process belongsToMany relationships
         foreach ($this->getBelongsToManyRelations($tableName, $columns) as $relation) {
             $relationName = $this->generateRelationName(
                 Str::plural($relation['model']),
@@ -243,6 +249,7 @@ class ModelRelationHelper
 
         return $allRelations;
     }
+
 
 
 
