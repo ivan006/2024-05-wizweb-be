@@ -85,10 +85,12 @@ class ModelRelationHelper
     {
         $groupedRelations = [];
         foreach ($hasManyRelations as $relation) {
-            $groupedRelations[$relation['model']][] = $relation;
+            $key = $relation['model']; // Group by the child table model
+            $groupedRelations[$key][] = $relation;
         }
         return $groupedRelations;
     }
+
 
     public function getBelongsToManyRelations($tableName, $columns)
     {
@@ -133,7 +135,7 @@ class ModelRelationHelper
         $relationName = preg_replace('/(_ID|_Id|_id|id|ID|Id)$/', '', $this->splitName($fieldName));
         $relationName = $isPlural ? Str::plural(Str::camel($relationName)) : Str::camel(Str::singular($relationName));
 
-        // Append suffix if provided
+        // Append suffix if provided (only in case of conflicts)
         if ($suffix) {
             $relationName .= ucfirst($this->splitName($suffix));
         }
@@ -145,6 +147,7 @@ class ModelRelationHelper
 
         return Str::snake($relationName);
     }
+
 
 
 
@@ -191,28 +194,56 @@ class ModelRelationHelper
         $relations = $this->getModelRelations($tableName, $columns);
 
         $allRelations = [];
+        $groupedHasMany = $this->groupHasManyRelations($relations['hasMany']);
+
         foreach ($relations['foreignKeys'] as $foreignKey) {
-            $relationName = $this->generateRelationName($foreignKey['COLUMN_NAME'], array_column($columns, 'Field'));
-            $allRelations[] = $this->generateBelongsTo($foreignKey['RELATED_MODEL'], $relationName, $foreignKey['COLUMN_NAME']);
+            $allRelations[] = [
+                'type' => 'belongsTo',
+                'name' => $this->generateRelationName($foreignKey['COLUMN_NAME'], array_column($columns, 'Field')),
+                'model' => $foreignKey['RELATED_MODEL'],
+                'foreignKey' => $foreignKey['COLUMN_NAME'],
+            ];
         }
 
-        foreach ($relations['hasMany'] as $relation) {
-            $relationName = $this->generateRelationName(
-                $relation['name'],
-                array_column($columns, 'Field'),
-                true, // Ensure plural
-                $relation['COLUMN_NAME'] // Use the foreign key column name for uniqueness
-            );
-            $allRelations[] = $this->generateHasMany($relation['RELATED_MODEL'], $relationName, $relation['COLUMN_NAME']);
+        foreach ($groupedHasMany as $childModel => $relations) {
+            foreach ($relations as $relation) {
+                // Check if there are multiple relationships for the same child model
+                $useForeignKeySuffix = count($relations) > 1;
+                $relationName = $this->generateRelationName(
+                    $relation['name'],
+                    array_column($columns, 'Field'),
+                    true,
+                    $useForeignKeySuffix ? $relation['COLUMN_NAME'] : null // Append foreign key only if conflict
+                );
+
+                $allRelations[] = [
+                    'type' => 'hasMany',
+                    'name' => $relationName,
+                    'model' => $relation['RELATED_MODEL'],
+                    'foreignKey' => $relation['COLUMN_NAME'],
+                ];
+            }
         }
 
         foreach ($this->getBelongsToManyRelations($tableName, $columns) as $relation) {
-            $relationName = $this->generateRelationName(Str::plural($relation['model']), array_column($columns, 'Field'));
-            $allRelations[] = $this->generateBelongsToMany($relation['model'], $relationName, $relation['pivotTable'], $relation['foreignPivotKey'], $relation['relatedPivotKey']);
+            $relationName = $this->generateRelationName(
+                Str::plural($relation['model']),
+                array_column($columns, 'Field'),
+                true
+            );
+            $allRelations[] = [
+                'type' => 'belongsToMany',
+                'name' => $relationName,
+                'model' => $relation['model'],
+                'pivotTable' => $relation['pivotTable'],
+                'foreignPivotKey' => $relation['foreignPivotKey'],
+                'relatedPivotKey' => $relation['relatedPivotKey'],
+            ];
         }
 
         return $allRelations;
     }
+
 
 
 }
