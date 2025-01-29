@@ -6,7 +6,7 @@
 
 **WizWeb is a modular online platform starter kit** that leverages **Vue.js and Laravel** while following **Rapid Application Development (RAD) principles**.  
 
-### **🔹 What Makes WizWeb Unique?**  
+## What Makes WizWeb Unique? 
 ✔️ **Highly Modular** – Mix and match components like `SuperTable` and `SuperRecord` anywhere by simply assigning a model.  
 ✔️ **Vue.js + Laravel** – Uses **Quasar + Vuex ORM** for a dynamic frontend with an API-driven Laravel backend.  
 ✔️ **Rapid Development** – Scaffolds CRUD, APIs, and UI elements, reducing repetitive development tasks.  
