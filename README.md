@@ -1,6 +1,6 @@
-Take the affordable course here:
+Take the free course here:
 
-[https://www.udemy.com/course/web-dev-made-relatively-easy-using-laravel-vue-and-wizweb](https://www.udemy.com/course/web-dev-made-relatively-easy-using-laravel-vue-and-wizweb)
+[https://www.youtube.com/playlist?list=PLDjAbnn_RxMI6Tgr5r5aXJMrvsNND4F2p](https://www.youtube.com/playlist?list=PLDjAbnn_RxMI6Tgr5r5aXJMrvsNND4F2p)
 
 
 Related libraries:
