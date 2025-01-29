@@ -1,4 +1,9 @@
 
+
+
+
+# WizWeb Overview
+
 **WizWeb is a modular online platform starter kit** that leverages **Vue.js and Laravel** while following **Rapid Application Development (RAD) principles**.  
 
 ### **🔹 What Makes WizWeb Unique?**  
@@ -9,9 +14,6 @@
 ✔️ **API-First Approach** – Easily extend and integrate with external services without being locked into a rigid structure.  
 
 🚀 **WizWeb is designed for developers who need a flexible, scalable, and fast way to build full-featured online platforms.**
-
-
-# WizWeb Overview
 
 ## Mission  
 The mission of WizWeb is to streamline platform development by providing tools that enable rapid and flexible creation of platforms. Its focus is on simplifying processes for developers while ensuring scalability and adaptability.
